@@ -344,8 +344,18 @@ function collect(finalize){
     gstOn: taxState.gst,
     pstOn: taxState.pst,
     subtotal: sub, gst, pst, total: tot,
+    paid: editingId ? (getInvoices().find(x=>x.id===editingId)?.paid || false) : false,
     savedAt: new Date().toISOString()
   };
+}
+
+function togglePaid(id){
+  const list = getInvoices();
+  const inv = list.find(x=>x.id===id);
+  if (!inv) return;
+  inv.paid = !inv.paid;
+  setInvoices(list);
+  renderSaved();
 }
 
 function saveInvoice(){
@@ -411,17 +421,18 @@ function renderSaved(){
   const c = document.getElementById('savedList');
   if (list.length === 0) { c.innerHTML = '<div class="empty">No saved invoices yet.</div>'; return; }
   c.innerHTML = list.map(inv => `
-    <div class="saved-item">
+    <div class="saved-item" style="border-left:5px solid ${inv.paid?'#2e7d32':'#c0392b'}">
       <div class="top">
         <span class="num">#${inv.num}</span>
+        <span style="padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px;background:${inv.paid?'#e8f5e9':'#ffe8e8'};color:${inv.paid?'#2e7d32':'#c0392b'}">${inv.paid?'✓ PAID':'● UNPAID'}</span>
         <span class="total">${money(inv.total)}</span>
       </div>
       <div class="client">${escapeHtml(inv.client || '(no client)')}</div>
       <div class="date">${escapeHtml(inv.date || '')}</div>
       <div class="btns">
+        <button style="background:${inv.paid?'#ffe8e8':'#e8f5e9'};color:${inv.paid?'#c0392b':'#2e7d32'}" onclick="togglePaid(${inv.id})">${inv.paid?'Mark Unpaid':'Mark Paid'}</button>
         <button style="background:#eef5ff;color:#0a66c2" onclick="loadInvoice(${inv.id})">Edit</button>
-        <button style="background:#e8f5e9;color:#2e7d32" onclick="emailOne(${inv.id})">Email</button>
-        <button style="background:#fff3cd;color:#8a6d00" onclick="printOne(${inv.id})">Print/PDF</button>
+        <button style="background:#fff3cd;color:#8a6d00" onclick="emailOne(${inv.id})">Send</button>
         <button style="background:#ffe8e8;color:#c0392b" onclick="deleteOne(${inv.id})">Delete</button>
       </div>
     </div>
@@ -498,6 +509,7 @@ function invoiceHTML(inv){
         <div style="text-align:right">
           <div style="color:#c0392b;font-weight:700;font-size:22px">Invoice #${inv.num}</div>
           <div style="color:#666;font-size:13px;margin-top:2px">${escapeHtml(inv.date)}</div>
+          <div style="display:inline-block;margin-top:8px;padding:6px 14px;border-radius:6px;font-weight:700;font-size:14px;letter-spacing:1px;border:2px solid ${inv.paid?'#2e7d32':'#c0392b'};color:${inv.paid?'#2e7d32':'#c0392b'};background:${inv.paid?'#e8f5e9':'#ffe8e8'}">${inv.paid?'✓ PAID':'● UNPAID'}</div>
         </div>
       </div>
       <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-top:14px;background:#fafbfc">
