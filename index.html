@@ -546,14 +546,14 @@ function openFormattedPreview(title, bodyHTML){
       .bar .note{width:100%;text-align:center;font-size:12px;opacity:.95;margin-top:6px;line-height:1.4}
     </style></head><body>
     <div class="bar">
-      <button onclick="window.print()">Send as PDF</button>
+      <button onclick="window.print()">📧 Email (PDF)</button>
+      <button onclick="window.print()">🖨️ Print (PDF)</button>
       <button class="close" onclick="window.close()">Close</button>
-      <div class="note">Tap "Send as PDF" then Share to Mail — your client gets the full formatted invoice.</div>
+      <div class="note">Email: Share → Mail &nbsp;|&nbsp; Print: AirPrint or Save PDF</div>
     </div>
     ${bodyHTML}
     <script>
       window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 300); };
-      setTimeout(function(){ window.print(); }, 400);
     <\/script>
     </body></html>
   `);
@@ -589,27 +589,7 @@ function exportCSV(){
 
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  const w = window.open('', '_blank');
-  w.document.write(`
-    <html><head><title>Invoice #${inv.num}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-      body{margin:0;background:#f2f4f7}
-      @media print { body{background:#fff} .bar{display:none} }
-      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:10px;display:flex;gap:8px;justify-content:center;z-index:5}
-      .bar button{background:#fff;color:#0a66c2;border:0;padding:10px 16px;border-radius:6px;font-weight:700;font-size:14px}
-    </style></head><body>
-    <div class="bar">
-      <button onclick="window.print()">Print / Save PDF</button>
-      <button onclick="window.close()">Close</button>
-    </div>
-    ${invoiceHTML(inv)}
-    <script>
-      window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 300); };
-    <\/script>
-    </body></html>
-  `);
-  w.document.close();
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
 }
 
 function wipeAll(){
