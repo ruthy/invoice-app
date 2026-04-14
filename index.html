@@ -170,7 +170,26 @@
     <button onclick="exportAll()">Email All to Accounting</button>
     <button onclick="exportCSV()">Report Table</button>
   </div>
+  <div class="card" style="padding:10px">
+    <label style="margin-bottom:6px">Group / Sort</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="grp-btn" data-g="date" onclick="setGrouping('date')">By Date</button>
+      <button class="grp-btn" data-g="az" onclick="setGrouping('az')">A–Z Client</button>
+      <button class="grp-btn" data-g="status" onclick="setGrouping('status')">Paid / Unpaid</button>
+    </div>
+    <div id="dateSubOpts" style="margin-top:8px;display:none;gap:6px;flex-wrap:wrap">
+      <button class="sub-btn" data-d="day" onclick="setDateMode('day')">Day</button>
+      <button class="sub-btn" data-d="month" onclick="setDateMode('month')">Month</button>
+      <button class="sub-btn" data-d="year" onclick="setDateMode('year')">Year</button>
+    </div>
+  </div>
   <div id="savedList"></div>
+  <style>
+    .grp-btn, .sub-btn { padding:8px 14px;border-radius:20px;border:1px solid #0a66c2;background:#fff;color:#0a66c2;font-weight:600;font-size:13px }
+    .grp-btn.active, .sub-btn.active { background:#0a66c2;color:#fff }
+    .group-header { background:#eef5ff;padding:8px 12px;margin:14px 0 6px;border-radius:6px;font-weight:700;color:#0a66c2;font-size:14px;display:flex;justify-content:space-between }
+    .group-header .count { color:#666;font-weight:500;font-size:12px }
+  </style>
 </section>
 
 <!-- SETTINGS TAB -->
@@ -416,11 +435,60 @@ function loadInvoice(id){
   showTab('new');
 }
 
+let grouping = localStorage.getItem('bsp_grouping') || 'date';
+let dateMode = localStorage.getItem('bsp_dateMode') || 'month';
+
+function setGrouping(g){ grouping = g; localStorage.setItem('bsp_grouping', g); renderSaved(); }
+function setDateMode(d){ dateMode = d; localStorage.setItem('bsp_dateMode', d); renderSaved(); }
+
+function parseInvDate(str){
+  const d = new Date(str);
+  if (!isNaN(d)) return d;
+  return new Date();
+}
+function groupKey(inv){
+  if (grouping === 'az') {
+    const c = (inv.client||'').trim().toUpperCase();
+    return c ? c[0] : '#';
+  }
+  if (grouping === 'status') return inv.paid ? '✓ PAID' : '● UNPAID';
+  const d = parseInvDate(inv.date);
+  if (dateMode === 'year') return String(d.getFullYear());
+  if (dateMode === 'day') return d.toLocaleDateString('en-CA', {year:'numeric', month:'short', day:'numeric'});
+  return d.toLocaleDateString('en-CA', {year:'numeric', month:'long'});
+}
+
 function renderSaved(){
-  const list = getInvoices().slice().sort((a,b)=> b.num - a.num);
+  document.querySelectorAll('.grp-btn').forEach(b => b.classList.toggle('active', b.dataset.g === grouping));
+  document.querySelectorAll('.sub-btn').forEach(b => b.classList.toggle('active', b.dataset.d === dateMode));
+  document.getElementById('dateSubOpts').style.display = grouping === 'date' ? 'flex' : 'none';
+
+  const list = getInvoices().slice();
   const c = document.getElementById('savedList');
   if (list.length === 0) { c.innerHTML = '<div class="empty">No saved invoices yet.</div>'; return; }
-  c.innerHTML = list.map(inv => `
+
+  if (grouping === 'az') list.sort((a,b) => (a.client||'').localeCompare(b.client||''));
+  else if (grouping === 'status') list.sort((a,b) => (a.paid?1:0) - (b.paid?1:0) || b.num - a.num);
+  else list.sort((a,b) => parseInvDate(b.date) - parseInvDate(a.date));
+
+  const groups = {};
+  const order = [];
+  list.forEach(inv => {
+    const k = groupKey(inv);
+    if (!groups[k]) { groups[k] = []; order.push(k); }
+    groups[k].push(inv);
+  });
+
+  c.innerHTML = order.map(k => {
+    const items = groups[k];
+    const groupTotal = items.reduce((s,i)=>s+i.total,0);
+    return `<div class="group-header"><span>${escapeHtml(k)}</span><span class="count">${items.length} • ${money(groupTotal)}</span></div>` +
+      items.map(inv => invoiceCard(inv)).join('');
+  }).join('');
+}
+
+function invoiceCard(inv){
+  return `
     <div class="saved-item" style="border-left:5px solid ${inv.paid?'#2e7d32':'#c0392b'}">
       <div class="top">
         <span class="num">#${inv.num}</span>
@@ -436,7 +504,7 @@ function renderSaved(){
         <button style="background:#ffe8e8;color:#c0392b" onclick="deleteOne(${inv.id})">Delete</button>
       </div>
     </div>
-  `).join('');
+  `;
 }
 
 function deleteOne(id){
