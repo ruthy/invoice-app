@@ -168,7 +168,7 @@
 <section id="viewSaved" style="display:none">
   <div class="toolbar">
     <button onclick="exportAll()">Email All to Accounting</button>
-    <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="exportCSV()">Report Table</button>
   </div>
   <div id="savedList"></div>
 </section>
@@ -590,13 +590,70 @@ function exportAll(){
 function exportCSV(){
   const list = getInvoices().sort((a,b)=>a.num-b.num);
   if (list.length === 0) { alert('Nothing to export.'); return; }
-  const rows = [['Invoice#','Date','Client','Address','Phone','Job','Subtotal','GST','PST','Total']];
-  list.forEach(i => rows.push([i.num,i.date,i.client,i.address,i.phone||'',i.job.replace(/\n/g,' | '),i.subtotal.toFixed(2),i.gst.toFixed(2),i.pst.toFixed(2),i.total.toFixed(2)]));
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const s = getSettings();
-  const to = s.email || '';
-  const body = encodeURIComponent(csv);
-  window.location.href = `mailto:${to}?subject=${encodeURIComponent('Invoices CSV export')}&body=${body}`;
+  let totSub=0, totGst=0, totPst=0, totAll=0, totPaid=0, totUnpaid=0;
+  list.forEach(i => { totSub+=i.subtotal; totGst+=i.gst; totPst+=i.pst; totAll+=i.total; if(i.paid)totPaid+=i.total; else totUnpaid+=i.total; });
+  const rows = list.map(i => `
+    <tr style="background:${i.paid?'#f1f8f4':'#fdf3f3'}">
+      <td>${i.num}</td>
+      <td>${escapeHtml(i.date)}</td>
+      <td>${escapeHtml(i.client)}</td>
+      <td>${escapeHtml((i.job||'').replace(/\n/g,' | ').substring(0,80))}</td>
+      <td style="text-align:right">${money(i.subtotal)}</td>
+      <td style="text-align:right">${money(i.gst)}</td>
+      <td style="text-align:right">${money(i.pst)}</td>
+      <td style="text-align:right;font-weight:700">${money(i.total)}</td>
+      <td style="text-align:center;color:${i.paid?'#2e7d32':'#c0392b'};font-weight:700">${i.paid?'✓ PAID':'● UNPAID'}</td>
+    </tr>`).join('');
+  const html = `
+    <div style="max-width:1100px;margin:0 auto;padding:24px;font-family:-apple-system,Arial,sans-serif">
+      <div style="background:linear-gradient(135deg,#0a66c2,#1e88e5);color:#fff;padding:16px;border-radius:10px">
+        <h1 style="margin:0;font-size:22px">${escapeHtml(s.name)} — Invoice Report</h1>
+        <div style="font-size:13px;margin-top:4px;opacity:.95">${list.length} invoices &nbsp;|&nbsp; Generated ${new Date().toLocaleDateString('en-CA')}</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:140px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px">
+          <div style="font-size:11px;color:#666;font-weight:700">TOTAL BILLED</div>
+          <div style="font-size:20px;font-weight:700;color:#0a66c2">${money(totAll)}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:#e8f5e9;border:1px solid #4caf50;border-radius:8px;padding:10px">
+          <div style="font-size:11px;color:#2e7d32;font-weight:700">PAID</div>
+          <div style="font-size:20px;font-weight:700;color:#2e7d32">${money(totPaid)}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:#ffe8e8;border:1px solid #c0392b;border-radius:8px;padding:10px">
+          <div style="font-size:11px;color:#c0392b;font-weight:700">UNPAID</div>
+          <div style="font-size:20px;font-weight:700;color:#c0392b">${money(totUnpaid)}</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:13px;background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden">
+        <thead>
+          <tr style="background:#0a66c2;color:#fff">
+            <th style="padding:10px;text-align:left">Inv #</th>
+            <th style="padding:10px;text-align:left">Date</th>
+            <th style="padding:10px;text-align:left">Client</th>
+            <th style="padding:10px;text-align:left">Job</th>
+            <th style="padding:10px;text-align:right">Subtotal</th>
+            <th style="padding:10px;text-align:right">GST</th>
+            <th style="padding:10px;text-align:right">PST</th>
+            <th style="padding:10px;text-align:right">Total</th>
+            <th style="padding:10px;text-align:center">Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="background:#f2f4f7;font-weight:700">
+            <td colspan="4" style="padding:10px;text-align:right">TOTALS:</td>
+            <td style="padding:10px;text-align:right">${money(totSub)}</td>
+            <td style="padding:10px;text-align:right">${money(totGst)}</td>
+            <td style="padding:10px;text-align:right">${money(totPst)}</td>
+            <td style="padding:10px;text-align:right;color:#0a66c2">${money(totAll)}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <style>table td{padding:8px 10px;border-bottom:1px solid #eee}</style>
+    </div>`;
+  openFormattedPreview('Invoice Report', html);
 }
 
 function printOne(id){
