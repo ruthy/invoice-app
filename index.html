@@ -532,9 +532,7 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function openFormattedPreview(title, bodyHTML, mailSubject, mailBodyText){
-  const s = getSettings();
-  const to = s.email || '';
+function openFormattedPreview(title, bodyHTML){
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>${title}</title>
@@ -542,23 +540,20 @@ function openFormattedPreview(title, bodyHTML, mailSubject, mailBodyText){
     <style>
       body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}
       @media print { body{background:#fff} .bar{display:none} }
-      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:10px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap}
-      .bar button{background:#fff;color:#0a66c2;border:0;padding:10px 14px;border-radius:6px;font-weight:700;font-size:13px}
-      .bar .note{width:100%;text-align:center;font-size:11px;opacity:.9;margin-top:4px}
+      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
+      .bar button{background:#fff;color:#0a66c2;border:0;padding:12px 18px;border-radius:8px;font-weight:700;font-size:15px}
+      .bar button.close{background:transparent;color:#fff;border:1px solid #fff}
+      .bar .note{width:100%;text-align:center;font-size:12px;opacity:.95;margin-top:6px;line-height:1.4}
     </style></head><body>
     <div class="bar">
-      <button onclick="window.print()">Send as PDF Email</button>
-      <button onclick="doPlainMail()">Send as Text Email</button>
-      <button onclick="window.close()">Close</button>
-      <div class="note">PDF keeps full formatting. Tap Print → Share → Mail.</div>
+      <button onclick="window.print()">Send as PDF</button>
+      <button class="close" onclick="window.close()">Close</button>
+      <div class="note">Tap "Send as PDF" then Share to Mail — your client gets the full formatted invoice.</div>
     </div>
     ${bodyHTML}
     <script>
       window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 300); };
-      function doPlainMail(){
-        window.location.href = 'mailto:${to}?subject=${encodeURIComponent(mailSubject)}&body=' + encodeURIComponent(${JSON.stringify(mailBodyText)});
-        setTimeout(function(){ window.close(); }, 600);
-      }
+      setTimeout(function(){ window.print(); }, 400);
     <\/script>
     </body></html>
   `);
@@ -567,28 +562,16 @@ function openFormattedPreview(title, bodyHTML, mailSubject, mailBodyText){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(
-    `Invoice #${inv.num}`,
-    invoiceHTML(inv),
-    `Invoice #${inv.num} - ${inv.client}`,
-    invoiceText(inv)
-  );
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
   setTimeout(()=>showTab('new'), 500);
 }
 
 function exportAll(){
   const list = getInvoices();
   if (list.length === 0) { alert('No invoices to send.'); return; }
-  const s = getSettings();
   const sorted = list.sort((a,b)=>a.num-b.num);
   const html = sorted.map(inv => invoiceHTML(inv) + '<div style="page-break-after:always"></div>').join('');
-  const text = sorted.map(invoiceText).join('\n\n');
-  openFormattedPreview(
-    `${sorted.length} Invoices`,
-    html,
-    `${sorted.length} invoices - ${s.name}`,
-    text
-  );
+  openFormattedPreview(`${sorted.length} Invoices`, html);
   setTimeout(()=>showTab('new'), 500);
 }
 
