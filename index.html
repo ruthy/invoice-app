@@ -460,7 +460,7 @@ function saveInvoice(){
   alert('Invoice #' + inv.num + ' saved.');
   clearForm(false);
   if (getSettings().autoEmail) {
-    openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail);
+    openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, invoiceText(inv));
   } else {
     showTab('saved');
   }
@@ -682,10 +682,13 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function openFormattedPreview(title, bodyHTML, clientEmail){
+function openFormattedPreview(title, bodyHTML, clientEmail, invTextForMail){
   const s = getSettings();
   const myEmail = s.email || '';
   const cEmail = clientEmail || '';
+  const mailText = invTextForMail || '';
+  const subj = encodeURIComponent(title);
+  const body = encodeURIComponent(mailText);
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>${title}</title>
@@ -693,19 +696,27 @@ function openFormattedPreview(title, bodyHTML, clientEmail){
     <style>
       body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}
       @media print { body{background:#fff} .bar{display:none} }
-      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
-      .bar button{background:#fff;color:#0a66c2;border:0;padding:10px 14px;border-radius:8px;font-weight:700;font-size:13px}
-      .bar button.close{background:transparent;color:#fff;border:1px solid #fff}
-      .bar .note{width:100%;text-align:center;font-size:11px;opacity:.95;margin-top:4px;line-height:1.3}
+      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
+      .bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}
+      .bar .email-btn{background:#25D366;color:#fff}
+      .bar .print-btn{background:#fff;color:#0a66c2}
+      .bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}
+      .bar .note{width:100%;text-align:center;font-size:11px;opacity:.95;margin-top:4px;line-height:1.4}
+      .bar .disabled{background:#999;color:#fff;opacity:.5}
     </style></head><body>
     <div class="bar">
-      <button onclick="window.print()">📧 My Email</button>
-      ${cEmail ? `<button onclick="window.print()">📧 Client</button>` : ''}
-      <button onclick="window.print()">🖨️ Print</button>
-      <button class="close" onclick="window.close()">Close</button>
+      <button class="email-btn${myEmail?'':' disabled'}" onclick="${myEmail ? `window.location.href='mailto:${myEmail}?subject=${subj}&body=${body}'` : `alert('Set your email in Settings first')`}">
+        📧 My Copy
+      </button>
+      <button class="email-btn${cEmail?'':' disabled'}" onclick="${cEmail ? `window.location.href='mailto:${cEmail}?subject=${subj}&body=${body}'` : `alert('No client email on this invoice')`}">
+        📧 Client
+      </button>
+      <button class="print-btn" onclick="window.print()">🖨️ PDF</button>
+      <button class="close-btn" onclick="window.close()">✕</button>
       <div class="note">
-        Tap any button → Share → Mail<br>
-        ${myEmail ? '📧 My: '+myEmail : ''}${myEmail && cEmail ? ' &nbsp;|&nbsp; ' : ''}${cEmail ? '📧 Client: '+cEmail : ''}
+        ${myEmail ? '📧 Me: '+myEmail : '⚠️ Set email in Settings'}
+        <br>
+        ${cEmail ? '📧 Client: '+cEmail : '⚠️ No client email entered'}
       </div>
     </div>
     ${bodyHTML}
@@ -719,7 +730,7 @@ function openFormattedPreview(title, bodyHTML, clientEmail){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail);
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, invoiceText(inv));
   setTimeout(()=>showTab('new'), 500);
 }
 
@@ -803,7 +814,7 @@ function exportCSV(){
 
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail);
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, invoiceText(inv));
 }
 
 function wipeAll(){
