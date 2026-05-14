@@ -111,7 +111,10 @@
 
   <div class="card">
     <label>Client Name</label>
-    <input type="text" id="clientName" placeholder="Full name">
+    <div style="position:relative">
+      <input type="text" id="clientName" placeholder="Full name" autocomplete="off">
+      <div id="clientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #d0d5dc;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,0.12)"></div>
+    </div>
     <div style="height:10px"></div>
     <label>Address</label>
     <textarea id="clientAddress" placeholder="Street, City, Province"></textarea>
@@ -230,6 +233,44 @@ const LS_SETTINGS = 'bsp_settings_v1';
 const LS_DRAFT = 'bsp_draft_v1';
 
 let editingId = null;
+
+function getClients(){
+  const invs = getInvoices();
+  const map = {};
+  invs.forEach(inv => {
+    if (!inv.client) return;
+    const key = inv.client.trim().toLowerCase();
+    if (!map[key] || new Date(inv.savedAt) > new Date(map[key].savedAt)) {
+      map[key] = { name: inv.client.trim(), address: inv.address||'', phone: inv.phone||'', savedAt: inv.savedAt };
+    }
+  });
+  return Object.values(map).sort((a,b) => a.name.localeCompare(b.name));
+}
+
+function showClientDropdown(){
+  const input = document.getElementById('clientName');
+  const dd = document.getElementById('clientDropdown');
+  const val = input.value.trim().toLowerCase();
+  const clients = getClients();
+  const filtered = val ? clients.filter(c => c.name.toLowerCase().includes(val)) : clients;
+  if (filtered.length === 0) { dd.style.display = 'none'; return; }
+  dd.innerHTML = filtered.map((c, i) => `
+    <div onclick="pickClient(${i}, this)" style="padding:10px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer"
+         data-name="${escapeHtml(c.name)}" data-addr="${escapeHtml(c.address)}" data-phone="${escapeHtml(c.phone)}">
+      <div style="font-weight:600;font-size:15px">${escapeHtml(c.name)}</div>
+      <div style="font-size:12px;color:#666">${escapeHtml(c.address).replace(/\n/g, ', ')}</div>
+    </div>
+  `).join('');
+  dd.style.display = 'block';
+}
+
+function pickClient(i, el){
+  document.getElementById('clientName').value = el.dataset.name;
+  document.getElementById('clientAddress').value = el.dataset.addr;
+  document.getElementById('clientPhone').value = el.dataset.phone;
+  document.getElementById('clientDropdown').style.display = 'none';
+  saveDraft();
+}
 
 function money(n){ return '$' + (Math.round(n*100)/100).toFixed(2); }
 function todayStr(){
@@ -746,6 +787,12 @@ document.getElementById('gstBox').classList.add('on');
 addLine(); addLine();
 ['clientName','clientAddress','clientPhone','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
 document.getElementById('invDate').addEventListener('input', saveDraft);
+document.getElementById('clientName').addEventListener('input', showClientDropdown);
+document.getElementById('clientName').addEventListener('focus', showClientDropdown);
+document.addEventListener('click', function(e){
+  if (!e.target.closest('#clientName') && !e.target.closest('#clientDropdown'))
+    document.getElementById('clientDropdown').style.display = 'none';
+});
 
 // restore draft
 (function(){
