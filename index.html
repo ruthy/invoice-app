@@ -121,6 +121,9 @@
     <div style="height:10px"></div>
     <label>Phone (optional)</label>
     <input type="tel" id="clientPhone" placeholder="604-...">
+    <div style="height:10px"></div>
+    <label>Client Email (optional)</label>
+    <input type="text" id="clientEmail" placeholder="client@example.com">
   </div>
 
   <div class="card">
@@ -249,7 +252,7 @@ function getClients(){
     if (!inv.client) return;
     const key = (inv.client.trim() + '|||' + (inv.address||'').trim()).toLowerCase();
     if (!map[key] || new Date(inv.savedAt) > new Date(map[key].savedAt)) {
-      map[key] = { name: inv.client.trim(), address: (inv.address||'').trim(), phone: (inv.phone||'').trim(), savedAt: inv.savedAt };
+      map[key] = { name: inv.client.trim(), address: (inv.address||'').trim(), phone: (inv.phone||'').trim(), email: (inv.clientEmail||'').trim(), savedAt: inv.savedAt };
     }
   });
   return Object.values(map).sort((a,b) => a.name.localeCompare(b.name) || a.address.localeCompare(b.address));
@@ -264,7 +267,7 @@ function showClientDropdown(){
   if (filtered.length === 0) { dd.style.display = 'none'; return; }
   dd.innerHTML = filtered.map((c, i) => `
     <div onclick="pickClient(${i}, this)" style="padding:10px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer"
-         data-name="${escapeHtml(c.name)}" data-addr="${escapeHtml(c.address)}" data-phone="${escapeHtml(c.phone)}">
+         data-name="${escapeHtml(c.name)}" data-addr="${escapeHtml(c.address)}" data-phone="${escapeHtml(c.phone)}" data-email="${escapeHtml(c.email||'')}">
       <div style="font-weight:600;font-size:15px">${escapeHtml(c.name)}</div>
       <div style="font-size:12px;color:#666">${escapeHtml(c.address).replace(/\n/g, ', ')}</div>
     </div>
@@ -276,6 +279,7 @@ function pickClient(i, el){
   document.getElementById('clientName').value = el.dataset.name;
   document.getElementById('clientAddress').value = el.dataset.addr;
   document.getElementById('clientPhone').value = el.dataset.phone;
+  document.getElementById('clientEmail').value = el.dataset.email || '';
   document.getElementById('clientDropdown').style.display = 'none';
   saveDraft();
 }
@@ -417,6 +421,7 @@ function collect(finalize){
     client: document.getElementById('clientName').value.trim(),
     address: document.getElementById('clientAddress').value.trim(),
     phone: document.getElementById('clientPhone').value.trim(),
+    clientEmail: document.getElementById('clientEmail').value.trim(),
     job: document.getElementById('jobInfo').value.trim(),
     lines: readLines(),
     gstOn: taxState.gst,
@@ -455,7 +460,7 @@ function saveInvoice(){
   alert('Invoice #' + inv.num + ' saved.');
   clearForm(false);
   if (getSettings().autoEmail) {
-    openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
+    openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail);
   } else {
     showTab('saved');
   }
@@ -466,7 +471,7 @@ function clearForm(confirmFirst){
   editingId = null;
   document.getElementById('invNum').textContent = getNextNum();
   document.getElementById('invDate').value = todayStr();
-  ['clientName','clientAddress','clientPhone','jobInfo'].forEach(id=>document.getElementById(id).value='');
+  ['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('lineItems').innerHTML = '';
   addLine(); addLine();
   taxState = {gst:true, pst:false};
@@ -487,6 +492,7 @@ function loadInvoice(id){
   document.getElementById('clientName').value = inv.client;
   document.getElementById('clientAddress').value = inv.address;
   document.getElementById('clientPhone').value = inv.phone || '';
+  document.getElementById('clientEmail').value = inv.clientEmail || '';
   document.getElementById('jobInfo').value = inv.job;
   document.getElementById('lineItems').innerHTML = '';
   (inv.lines && inv.lines.length ? inv.lines : [{}]).forEach(l => addLine(l.desc||'', l.qty||'', l.price||''));
@@ -676,7 +682,10 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function openFormattedPreview(title, bodyHTML){
+function openFormattedPreview(title, bodyHTML, clientEmail){
+  const s = getSettings();
+  const myEmail = s.email || '';
+  const cEmail = clientEmail || '';
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>${title}</title>
@@ -685,15 +694,19 @@ function openFormattedPreview(title, bodyHTML){
       body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}
       @media print { body{background:#fff} .bar{display:none} }
       .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
-      .bar button{background:#fff;color:#0a66c2;border:0;padding:12px 18px;border-radius:8px;font-weight:700;font-size:15px}
+      .bar button{background:#fff;color:#0a66c2;border:0;padding:10px 14px;border-radius:8px;font-weight:700;font-size:13px}
       .bar button.close{background:transparent;color:#fff;border:1px solid #fff}
-      .bar .note{width:100%;text-align:center;font-size:12px;opacity:.95;margin-top:6px;line-height:1.4}
+      .bar .note{width:100%;text-align:center;font-size:11px;opacity:.95;margin-top:4px;line-height:1.3}
     </style></head><body>
     <div class="bar">
-      <button onclick="window.print()">📧 Email (PDF)</button>
-      <button onclick="window.print()">🖨️ Print (PDF)</button>
+      <button onclick="window.print()">📧 My Email</button>
+      ${cEmail ? `<button onclick="window.print()">📧 Client</button>` : ''}
+      <button onclick="window.print()">🖨️ Print</button>
       <button class="close" onclick="window.close()">Close</button>
-      <div class="note">Email: Share → Mail &nbsp;|&nbsp; Print: AirPrint or Save PDF</div>
+      <div class="note">
+        Tap any button → Share → Mail<br>
+        ${myEmail ? '📧 My: '+myEmail : ''}${myEmail && cEmail ? ' &nbsp;|&nbsp; ' : ''}${cEmail ? '📧 Client: '+cEmail : ''}
+      </div>
     </div>
     ${bodyHTML}
     <script>
@@ -706,7 +719,7 @@ function openFormattedPreview(title, bodyHTML){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail);
   setTimeout(()=>showTab('new'), 500);
 }
 
@@ -790,7 +803,7 @@ function exportCSV(){
 
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail);
 }
 
 function wipeAll(){
@@ -808,7 +821,7 @@ document.getElementById('invNum').textContent = getNextNum();
 document.getElementById('gstSwitch').classList.add('on');
 document.getElementById('gstBox').classList.add('on');
 addLine(); addLine();
-['clientName','clientAddress','clientPhone','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
+['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
 document.getElementById('invDate').addEventListener('input', saveDraft);
 document.getElementById('clientName').addEventListener('input', showClientDropdown);
 document.getElementById('clientName').addEventListener('focus', showClientDropdown);
@@ -824,6 +837,7 @@ document.addEventListener('click', function(e){
     document.getElementById('clientName').value = d.client || '';
     document.getElementById('clientAddress').value = d.address || '';
     document.getElementById('clientPhone').value = d.phone || '';
+    document.getElementById('clientEmail').value = d.clientEmail || '';
     document.getElementById('jobInfo').value = d.job || '';
     if (d.date) document.getElementById('invDate').value = d.date;
     document.getElementById('lineItems').innerHTML = '';
