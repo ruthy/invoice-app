@@ -239,12 +239,12 @@ function getClients(){
   const map = {};
   invs.forEach(inv => {
     if (!inv.client) return;
-    const key = inv.client.trim().toLowerCase();
+    const key = (inv.client.trim() + '|||' + (inv.address||'').trim()).toLowerCase();
     if (!map[key] || new Date(inv.savedAt) > new Date(map[key].savedAt)) {
-      map[key] = { name: inv.client.trim(), address: inv.address||'', phone: inv.phone||'', savedAt: inv.savedAt };
+      map[key] = { name: inv.client.trim(), address: (inv.address||'').trim(), phone: (inv.phone||'').trim(), savedAt: inv.savedAt };
     }
   });
-  return Object.values(map).sort((a,b) => a.name.localeCompare(b.name));
+  return Object.values(map).sort((a,b) => a.name.localeCompare(b.name) || a.address.localeCompare(b.address));
 }
 
 function showClientDropdown(){
