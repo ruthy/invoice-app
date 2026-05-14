@@ -457,13 +457,17 @@ function saveInvoice(){
   localStorage.removeItem(LS_DRAFT);
   const savedId = inv.id;
   editingId = null;
-  alert('Invoice #' + inv.num + ' saved.');
   clearForm(false);
-  if (getSettings().autoEmail) {
-    openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, invoiceText(inv));
+  if (getSettings().autoEmail && getSettings().email) {
+    const s = getSettings();
+    const subj = encodeURIComponent(`Invoice #${inv.num} - ${inv.client}`);
+    const body = encodeURIComponent(invoiceText(inv));
+    window.location.href = `mailto:${s.email}?subject=${subj}&body=${body}`;
+    alert('Invoice #' + inv.num + ' saved. Email opened to ' + s.email);
   } else {
-    showTab('saved');
+    alert('Invoice #' + inv.num + ' saved.');
   }
+  showTab('saved');
 }
 
 function clearForm(confirmFirst){
