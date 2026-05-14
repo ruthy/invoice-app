@@ -210,6 +210,14 @@
     <label>Accounting Email</label>
     <input type="text" id="setEmail" placeholder="accountant@example.com">
     <div style="height:8px"></div>
+    <div class="tax-toggle" id="autoEmailBox" onclick="toggleAutoEmail()" style="margin-bottom:8px">
+      <div>
+        <div style="font-weight:600">Auto-email on Save</div>
+        <div style="font-size:12px;color:#666">Opens email with PDF after every save</div>
+      </div>
+      <div class="switch" id="autoEmailSwitch"></div>
+    </div>
+    <div style="height:8px"></div>
     <label>Next Invoice #</label>
     <input type="number" id="setNext">
     <div class="actions">
@@ -282,8 +290,15 @@ function getSettings(){
     name: 'BLUE SKY PLUMBING',
     addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
     phone: 'Tel: 604-800-0078 | GST# 117592584',
-    email: ''
+    email: '',
+    autoEmail: false
   };
+}
+function toggleAutoEmail(){
+  const s = getSettings();
+  s.autoEmail = !s.autoEmail;
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+  applySettings();
 }
 function applySettings(){
   const s = getSettings();
@@ -294,13 +309,16 @@ function applySettings(){
   document.getElementById('setPhone').value = s.phone;
   document.getElementById('setEmail').value = s.email || '';
   document.getElementById('setNext').value = getNextNum();
+  document.getElementById('autoEmailSwitch').classList.toggle('on', !!s.autoEmail);
+  document.getElementById('autoEmailBox').classList.toggle('on', !!s.autoEmail);
 }
 function saveSettings(){
   const s = {
     name: document.getElementById('setName').value.trim() || 'BLUE SKY PLUMBING',
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
-    email: document.getElementById('setEmail').value.trim()
+    email: document.getElementById('setEmail').value.trim(),
+    autoEmail: getSettings().autoEmail
   };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
   const nxt = parseInt(document.getElementById('setNext').value,10);
@@ -432,10 +450,15 @@ function saveInvoice(){
   }
   setInvoices(list);
   localStorage.removeItem(LS_DRAFT);
+  const savedId = inv.id;
   editingId = null;
   alert('Invoice #' + inv.num + ' saved.');
   clearForm(false);
-  showTab('saved');
+  if (getSettings().autoEmail) {
+    openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
+  } else {
+    showTab('saved');
+  }
 }
 
 function clearForm(confirmFirst){
