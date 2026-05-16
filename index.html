@@ -138,6 +138,25 @@
   </div>
 
   <div class="card">
+    <label>Payment Method</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="payMethods">
+      <button class="pay-btn" data-p="cheque" onclick="setPayMethod('cheque')">Cheque</button>
+      <button class="pay-btn" data-p="e-transfer" onclick="setPayMethod('e-transfer')">E-Transfer</button>
+      <button class="pay-btn" data-p="cash" onclick="setPayMethod('cash')">Cash</button>
+      <button class="pay-btn" data-p="wire" onclick="setPayMethod('wire')">Wire</button>
+      <button class="pay-btn" data-p="checking" onclick="setPayMethod('checking')">Checking</button>
+    </div>
+    <div id="chequeNumRow" style="display:none;margin-top:8px">
+      <label>Cheque #</label>
+      <input type="text" id="chequeNum" placeholder="Cheque number">
+    </div>
+    <style>
+      .pay-btn{padding:8px 14px;border-radius:20px;border:1px solid #0a66c2;background:#fff;color:#0a66c2;font-weight:600;font-size:13px}
+      .pay-btn.active{background:#0a66c2;color:#fff}
+    </style>
+  </div>
+
+  <div class="card">
     <label>Taxes</label>
     <div class="tax-row">
       <div class="tax-toggle" id="gstBox" onclick="toggleTax('gst')">
@@ -385,6 +404,14 @@ function readLines(){
   return out;
 }
 
+let payMethod = '';
+function setPayMethod(m){
+  payMethod = (payMethod === m) ? '' : m;
+  document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.p === payMethod));
+  document.getElementById('chequeNumRow').style.display = payMethod === 'cheque' ? 'block' : 'none';
+  saveDraft();
+}
+
 let taxState = {gst:true, pst:false};
 function toggleTax(k){
   taxState[k] = !taxState[k];
@@ -426,6 +453,8 @@ function collect(finalize){
     lines: readLines(),
     gstOn: taxState.gst,
     pstOn: taxState.pst,
+    payMethod: payMethod,
+    chequeNum: document.getElementById('chequeNum').value.trim(),
     subtotal: sub, gst, pst, total: tot,
     paid: editingId ? (getInvoices().find(x=>x.id===editingId)?.paid || false) : false,
     savedAt: new Date().toISOString()
@@ -475,7 +504,10 @@ function clearForm(confirmFirst){
   editingId = null;
   document.getElementById('invNum').textContent = getNextNum();
   document.getElementById('invDate').value = todayStr();
-  ['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id=>document.getElementById(id).value='');
+  ['clientName','clientAddress','clientPhone','clientEmail','jobInfo','chequeNum'].forEach(id=>document.getElementById(id).value='');
+  payMethod = '';
+  document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('chequeNumRow').style.display = 'none';
   document.getElementById('lineItems').innerHTML = '';
   addLine(); addLine();
   taxState = {gst:true, pst:false};
@@ -498,6 +530,10 @@ function loadInvoice(id){
   document.getElementById('clientPhone').value = inv.phone || '';
   document.getElementById('clientEmail').value = inv.clientEmail || '';
   document.getElementById('jobInfo').value = inv.job;
+  payMethod = inv.payMethod || '';
+  document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.p === payMethod));
+  document.getElementById('chequeNum').value = inv.chequeNum || '';
+  document.getElementById('chequeNumRow').style.display = payMethod === 'cheque' ? 'block' : 'none';
   document.getElementById('lineItems').innerHTML = '';
   (inv.lines && inv.lines.length ? inv.lines : [{}]).forEach(l => addLine(l.desc||'', l.qty||'', l.price||''));
   taxState = {gst: !!inv.gstOn, pst: !!inv.pstOn};
@@ -630,6 +666,11 @@ function invoiceText(inv){
   if (inv.pstOn) t += pad('PST (7%):', W - 11) + pad(money(inv.pst), 11) + '\n';
   t += pad('TOTAL:', W - 11) + pad(money(inv.total), 11) + '\n';
   t += line + '\n';
+  if (inv.payMethod) {
+    t += 'PAYMENT: ' + inv.payMethod.toUpperCase();
+    if (inv.payMethod === 'cheque' && inv.chequeNum) t += ' — CHQ# ' + inv.chequeNum;
+    t += '\n';
+  }
   return t;
 }
 
@@ -683,6 +724,10 @@ function invoiceHTML(inv){
         ${inv.pstOn?`<div style="padding:3px 0">PST (7%): <strong>${money(inv.pst)}</strong></div>`:''}
         <div style="padding:8px 0;margin-top:4px;border-top:2px solid #0a66c2;color:#0a66c2;font-size:20px;font-weight:700">TOTAL: ${money(inv.total)}</div>
       </div>
+      ${inv.payMethod ? `<div style="margin-top:14px;padding:10px 14px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <div><span style="font-size:12px;color:#666;font-weight:700;letter-spacing:.5px">PAYMENT METHOD</span><br>
+        <span style="font-size:16px;font-weight:600">${inv.payMethod.toUpperCase()}${inv.payMethod==='cheque'&&inv.chequeNum?' — CHQ# '+escapeHtml(inv.chequeNum):''}</span></div>
+      </div>` : ''}
     </div>`;
 }
 
@@ -836,7 +881,7 @@ document.getElementById('invNum').textContent = getNextNum();
 document.getElementById('gstSwitch').classList.add('on');
 document.getElementById('gstBox').classList.add('on');
 addLine(); addLine();
-['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
+['clientName','clientAddress','clientPhone','clientEmail','jobInfo','chequeNum'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
 document.getElementById('invDate').addEventListener('input', saveDraft);
 document.getElementById('clientName').addEventListener('input', showClientDropdown);
 document.getElementById('clientName').addEventListener('focus', showClientDropdown);
@@ -854,6 +899,9 @@ document.addEventListener('click', function(e){
     document.getElementById('clientPhone').value = d.phone || '';
     document.getElementById('clientEmail').value = d.clientEmail || '';
     document.getElementById('jobInfo').value = d.job || '';
+    if (d.payMethod) { payMethod = d.payMethod; document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.p === payMethod)); }
+    document.getElementById('chequeNum').value = d.chequeNum || '';
+    document.getElementById('chequeNumRow').style.display = payMethod === 'cheque' ? 'block' : 'none';
     if (d.date) document.getElementById('invDate').value = d.date;
     document.getElementById('lineItems').innerHTML = '';
     (d.lines && d.lines.length ? d.lines : [{},{}]).forEach(l => addLine(l.desc||'',l.qty||'',l.price||''));
