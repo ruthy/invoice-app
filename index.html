@@ -489,10 +489,12 @@ function saveInvoice(){
   clearForm(false);
   if (getSettings().autoEmail && getSettings().email) {
     const s = getSettings();
-    const subj = encodeURIComponent(`Invoice #${inv.num} - ${inv.client}`);
-    const body = encodeURIComponent(invoiceText(inv));
-    window.location.href = `mailto:${s.email}?subject=${subj}&body=${body}`;
-    alert('Invoice #' + inv.num + ' saved. Email opened to ' + s.email);
+    const subj = `Invoice #${inv.num} - ${inv.client}`;
+    const lines = inv.lines.map(l => `${l.desc}: ${money(l.qty*l.price)}`).join('\n');
+    const short = `${s.name}\n${s.addr}\n\nInvoice #${inv.num} | ${inv.date}\nClient: ${inv.client}\n${inv.address}\n\n${lines}\n\nTotal: ${money(inv.total)}${inv.payMethod ? '\nPayment: '+inv.payMethod.toUpperCase()+(inv.chequeNum?' CHQ#'+inv.chequeNum:'') : ''}`;
+    const mailto = `mailto:${s.email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(short)}`;
+    setTimeout(function(){ window.location.href = mailto; }, 100);
+    alert('Invoice #' + inv.num + ' saved. Opening email...');
   } else {
     alert('Invoice #' + inv.num + ' saved.');
   }
@@ -731,13 +733,17 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function openFormattedPreview(title, bodyHTML, clientEmail, invTextForMail){
+function openFormattedPreview(title, bodyHTML, clientEmail, inv){
   const s = getSettings();
   const myEmail = s.email || '';
   const cEmail = clientEmail || '';
-  const mailText = invTextForMail || '';
   const subj = encodeURIComponent(title);
-  const body = encodeURIComponent(mailText);
+  let shortBody = title;
+  if (inv && inv.client) {
+    const lines = (inv.lines||[]).map(function(l){return l.desc+': '+money(l.qty*l.price)}).join('\\n');
+    shortBody = s.name+'\\n'+s.addr+'\\n\\n'+title+' | '+inv.date+'\\nClient: '+inv.client+'\\n'+(inv.address||'')+'\\n\\n'+lines+'\\n\\nTotal: '+money(inv.total);
+  }
+  const body = encodeURIComponent(shortBody);
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>${title}</title>
@@ -779,7 +785,7 @@ function openFormattedPreview(title, bodyHTML, clientEmail, invTextForMail){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, invoiceText(inv));
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, inv);
   setTimeout(()=>showTab('new'), 500);
 }
 
@@ -863,7 +869,7 @@ function exportCSV(){
 
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, invoiceText(inv));
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, inv);
 }
 
 function wipeAll(){
