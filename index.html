@@ -488,18 +488,8 @@ function saveInvoice(){
   editingId = null;
   clearForm(false);
   showTab('saved');
-  if (getSettings().autoEmail && getSettings().email) {
-    const s = getSettings();
-    const subj = `Invoice #${inv.num} - ${inv.client}`;
-    const lines = inv.lines.map(l => `${l.desc}: ${money(l.qty*l.price)}`).join('\n');
-    const short = `${s.name}\n${s.addr}\n\nInvoice #${inv.num} | ${inv.date}\nClient: ${inv.client}\n${inv.address}\n\n${lines}\n\nTotal: ${money(inv.total)}${inv.payMethod ? '\nPayment: '+inv.payMethod.toUpperCase()+(inv.chequeNum?' CHQ#'+inv.chequeNum:'') : ''}`;
-    const mailto = `mailto:${s.email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(short)}`;
-    const a = document.createElement('a');
-    a.href = mailto;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  if (getSettings().autoEmail) {
+    shareInvoice(inv);
   }
 }
 
@@ -735,13 +725,16 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function sendMail(to, subject, body){
-  const a = document.createElement('a');
-  a.href = 'mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+function shareInvoice(inv){
+  const s = getSettings();
+  const title = `Invoice #${inv.num} - ${inv.client}`;
+  const lines = (inv.lines||[]).map(l => l.desc+': $'+(l.qty*l.price).toFixed(2)).join('\n');
+  const text = s.name+'\n'+s.addr+'\n\n'+title+'\nDate: '+(inv.date||'')+'\nClient: '+inv.client+'\n'+(inv.address||'')+'\n\n'+lines+'\n\nTotal: $'+(inv.total||0).toFixed(2)+(inv.payMethod?'\nPayment: '+inv.payMethod.toUpperCase()+(inv.chequeNum?' CHQ#'+inv.chequeNum:''):'');
+  if (navigator.share) {
+    navigator.share({title: title, text: text}).catch(function(){});
+  } else {
+    window.open('mailto:?subject='+encodeURIComponent(title)+'&body='+encodeURIComponent(text), '_blank');
+  }
 }
 
 function openFormattedPreview(title, bodyHTML, clientEmail, inv){
@@ -769,34 +762,21 @@ function openFormattedPreview(title, bodyHTML, clientEmail, inv){
       .bar .disabled{background:#999;color:#fff;opacity:.5}
     </style>
     <script>
-      var _myEmail = ${JSON.stringify(myEmail)};
-      var _cEmail = ${JSON.stringify(cEmail)};
       var _subj = ${JSON.stringify(title)};
       var _body = ${JSON.stringify(shortBody)};
-      function doMail(to){
-        var a = document.createElement('a');
-        a.href = 'mailto:'+to+'?subject='+encodeURIComponent(_subj)+'&body='+encodeURIComponent(_body);
-        a.target='_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+      function doShare(){
+        if (navigator.share) {
+          navigator.share({title: _subj, text: _body}).catch(function(){});
+        } else {
+          window.open('mailto:?subject='+encodeURIComponent(_subj)+'&body='+encodeURIComponent(_body), '_blank');
+        }
       }
     </script>
     </head><body>
     <div class="bar">
-      <button class="email-btn${myEmail?'':' disabled'}" onclick="${myEmail ? `doMail(_myEmail)` : `alert('Set your email in Settings first')`}">
-        📧 My Copy
-      </button>
-      <button class="email-btn${cEmail?'':' disabled'}" onclick="${cEmail ? `doMail(_cEmail)` : `alert('No client email on this invoice')`}">
-        📧 Client
-      </button>
+      <button class="email-btn" onclick="doShare()">📤 Share / Email</button>
       <button class="print-btn" onclick="window.print()">🖨️ PDF</button>
       <button class="close-btn" onclick="window.close()">✕</button>
-      <div class="note">
-        ${myEmail ? '📧 Me: '+myEmail : '⚠️ Set email in Settings'}
-        <br>
-        ${cEmail ? '📧 Client: '+cEmail : '⚠️ No client email entered'}
-      </div>
     </div>
     ${bodyHTML}
     <script>
