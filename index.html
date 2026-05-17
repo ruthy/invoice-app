@@ -700,18 +700,30 @@ function sendToAccountant(id){
       .bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}
     </style></head><body>
     <div class="bar">
-      <button class="email-btn" onclick="emailAccountant()">Email to Accountant</button>
+      <button class="print-btn" onclick="sharePDF()">Send to Accountant</button>
       <button class="print-btn" onclick="window.print()">Save as PDF</button>
       <button class="close-btn" onclick="window.close()">Close</button>
     </div>
     ${invoiceHTML(inv)}
     ${receiptsHTML}
     <script>
-      function emailAccountant(){
-        var subject = 'Invoice #${inv.num} + Receipts - ${escapeHtml(inv.client)}';
-        var body = 'Invoice #${inv.num} for ${escapeHtml(inv.client)}\\nTotal: $${inv.total.toFixed(2)}\\nDate: ${escapeHtml(inv.date)}\\n\\nPlease see attached PDF with invoice and purchase receipts.';
-        var url = 'https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(s.email)}&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-        window.open(url, '_blank');
+      function sharePDF(){
+        if (navigator.share) {
+          var html = document.documentElement.outerHTML;
+          var blob = new Blob([html], {type:'text/html'});
+          var file = new File([blob], 'Invoice_${inv.num}_${inv.client.replace(/[^a-zA-Z0-9]/g,'_')}.html', {type:'text/html'});
+          if (navigator.canShare && navigator.canShare({files:[file]})){
+            navigator.share({
+              title: 'Invoice #${inv.num} + Receipts',
+              text: 'Invoice #${inv.num} - ${escapeHtml(inv.client)} - $${inv.total.toFixed(2)}',
+              files: [file]
+            }).catch(function(){});
+          } else {
+            window.print();
+          }
+        } else {
+          window.print();
+        }
       }
       window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 300); };
     <\/script>
