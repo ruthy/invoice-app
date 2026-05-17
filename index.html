@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Blue Sky">
 <meta name="theme-color" content="#0a66c2">
 <title>Blue Sky Plumbing - Invoices</title>
@@ -109,19 +111,13 @@
 
   <div class="card">
     <label>Client Name</label>
-    <div style="position:relative">
-      <input type="text" id="clientName" placeholder="Full name" autocomplete="off">
-      <div id="clientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #d0d5dc;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,0.12)"></div>
-    </div>
+    <input type="text" id="clientName" placeholder="Full name">
     <div style="height:10px"></div>
     <label>Address</label>
     <textarea id="clientAddress" placeholder="Street, City, Province"></textarea>
     <div style="height:10px"></div>
     <label>Phone (optional)</label>
     <input type="tel" id="clientPhone" placeholder="604-...">
-    <div style="height:10px"></div>
-    <label>Client Email (optional)</label>
-    <input type="text" id="clientEmail" placeholder="client@example.com">
   </div>
 
   <div class="card">
@@ -208,16 +204,8 @@
     <label>Phone / GST line</label>
     <input type="text" id="setPhone">
     <div style="height:8px"></div>
-    <label>My Email (receives copy of every invoice)</label>
-    <input type="text" id="setEmail" placeholder="your@email.com">
-    <div style="height:8px"></div>
-    <div class="tax-toggle" id="autoEmailBox" onclick="toggleAutoEmail()" style="margin-bottom:8px">
-      <div>
-        <div style="font-weight:600">Auto-email on Save</div>
-        <div style="font-size:12px;color:#666">Sends formatted invoice email automatically</div>
-      </div>
-      <div class="switch" id="autoEmailSwitch"></div>
-    </div>
+    <label>Accounting Email</label>
+    <input type="text" id="setEmail" placeholder="accountant@example.com">
     <div style="height:8px"></div>
     <label>Next Invoice #</label>
     <input type="number" id="setNext">
@@ -243,45 +231,6 @@ const LS_DRAFT = 'bsp_draft_v1';
 
 let editingId = null;
 
-function getClients(){
-  const invs = getInvoices();
-  const map = {};
-  invs.forEach(inv => {
-    if (!inv.client) return;
-    const key = (inv.client.trim() + '|||' + (inv.address||'').trim()).toLowerCase();
-    if (!map[key] || new Date(inv.savedAt) > new Date(map[key].savedAt)) {
-      map[key] = { name: inv.client.trim(), address: (inv.address||'').trim(), phone: (inv.phone||'').trim(), email: (inv.clientEmail||'').trim(), savedAt: inv.savedAt };
-    }
-  });
-  return Object.values(map).sort((a,b) => a.name.localeCompare(b.name) || a.address.localeCompare(b.address));
-}
-
-function showClientDropdown(){
-  const input = document.getElementById('clientName');
-  const dd = document.getElementById('clientDropdown');
-  const val = input.value.trim().toLowerCase();
-  const clients = getClients();
-  const filtered = val ? clients.filter(c => c.name.toLowerCase().includes(val)) : clients;
-  if (filtered.length === 0) { dd.style.display = 'none'; return; }
-  dd.innerHTML = filtered.map((c, i) => `
-    <div onclick="pickClient(${i}, this)" style="padding:10px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer"
-         data-name="${escapeHtml(c.name)}" data-addr="${escapeHtml(c.address)}" data-phone="${escapeHtml(c.phone)}" data-email="${escapeHtml(c.email||'')}">
-      <div style="font-weight:600;font-size:15px">${escapeHtml(c.name)}</div>
-      <div style="font-size:12px;color:#666">${escapeHtml(c.address).replace(/\n/g, ', ')}</div>
-    </div>
-  `).join('');
-  dd.style.display = 'block';
-}
-
-function pickClient(i, el){
-  document.getElementById('clientName').value = el.dataset.name;
-  document.getElementById('clientAddress').value = el.dataset.addr;
-  document.getElementById('clientPhone').value = el.dataset.phone;
-  document.getElementById('clientEmail').value = el.dataset.email || '';
-  document.getElementById('clientDropdown').style.display = 'none';
-  saveDraft();
-}
-
 function money(n){ return '$' + (Math.round(n*100)/100).toFixed(2); }
 function todayStr(){
   const d = new Date();
@@ -292,15 +241,8 @@ function getSettings(){
     name: 'BLUE SKY PLUMBING',
     addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
     phone: 'Tel: 604-800-0078 | GST# 117592584',
-    email: '',
-    autoEmail: false
+    email: ''
   };
-}
-function toggleAutoEmail(){
-  const s = getSettings();
-  s.autoEmail = !s.autoEmail;
-  localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
-  applySettings();
 }
 function applySettings(){
   const s = getSettings();
@@ -311,16 +253,13 @@ function applySettings(){
   document.getElementById('setPhone').value = s.phone;
   document.getElementById('setEmail').value = s.email || '';
   document.getElementById('setNext').value = getNextNum();
-  document.getElementById('autoEmailSwitch').classList.toggle('on', !!s.autoEmail);
-  document.getElementById('autoEmailBox').classList.toggle('on', !!s.autoEmail);
 }
 function saveSettings(){
   const s = {
     name: document.getElementById('setName').value.trim() || 'BLUE SKY PLUMBING',
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
-    email: document.getElementById('setEmail').value.trim(),
-    autoEmail: getSettings().autoEmail
+    email: document.getElementById('setEmail').value.trim()
   };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
   const nxt = parseInt(document.getElementById('setNext').value,10);
@@ -419,7 +358,6 @@ function collect(finalize){
     client: document.getElementById('clientName').value.trim(),
     address: document.getElementById('clientAddress').value.trim(),
     phone: document.getElementById('clientPhone').value.trim(),
-    clientEmail: document.getElementById('clientEmail').value.trim(),
     job: document.getElementById('jobInfo').value.trim(),
     lines: readLines(),
     gstOn: taxState.gst,
@@ -453,15 +391,9 @@ function saveInvoice(){
   }
   setInvoices(list);
   localStorage.removeItem(LS_DRAFT);
-  const savedId = inv.id;
   editingId = null;
+  alert('Invoice #' + inv.num + ' saved.');
   clearForm(false);
-  if (getSettings().autoEmail) {
-    alert('Invoice #' + inv.num + ' saved. Tap your email app to send.');
-    sendEmail(inv);
-  } else {
-    alert('Invoice #' + inv.num + ' saved.');
-  }
   showTab('saved');
 }
 
@@ -470,7 +402,7 @@ function clearForm(confirmFirst){
   editingId = null;
   document.getElementById('invNum').textContent = getNextNum();
   document.getElementById('invDate').value = todayStr();
-  ['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id=>document.getElementById(id).value='');
+  ['clientName','clientAddress','clientPhone','jobInfo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('lineItems').innerHTML = '';
   addLine(); addLine();
   taxState = {gst:true, pst:false};
@@ -491,7 +423,6 @@ function loadInvoice(id){
   document.getElementById('clientName').value = inv.client;
   document.getElementById('clientAddress').value = inv.address;
   document.getElementById('clientPhone').value = inv.phone || '';
-  document.getElementById('clientEmail').value = inv.clientEmail || '';
   document.getElementById('jobInfo').value = inv.job;
   document.getElementById('lineItems').innerHTML = '';
   (inv.lines && inv.lines.length ? inv.lines : [{}]).forEach(l => addLine(l.desc||'', l.qty||'', l.price||''));
@@ -569,8 +500,7 @@ function invoiceCard(inv){
       <div class="btns">
         <button style="background:${inv.paid?'#ffe8e8':'#e8f5e9'};color:${inv.paid?'#c0392b':'#2e7d32'}" onclick="togglePaid(${inv.id})">${inv.paid?'Mark Unpaid':'Mark Paid'}</button>
         <button style="background:#eef5ff;color:#0a66c2" onclick="loadInvoice(${inv.id})">Edit</button>
-        <button style="background:#fff3cd;color:#8a6d00" onclick="emailOne(${inv.id})">Email</button>
-        <button style="background:#f0f0f0;color:#333" onclick="printOne(${inv.id})">PDF</button>
+        <button style="background:#fff3cd;color:#8a6d00" onclick="emailOne(${inv.id})">Send</button>
         <button style="background:#ffe8e8;color:#c0392b" onclick="deleteOne(${inv.id})">Delete</button>
       </div>
     </div>
@@ -682,53 +612,32 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function sendEmail(inv){
+function openFormattedPreview(title, bodyHTML, inv){
   const s = getSettings();
   const myEmail = s.email || '';
-  const cEmail = inv.clientEmail || '';
-  const to = [cEmail, myEmail].filter(Boolean).join(', ');
-  const subject = 'Invoice #' + inv.num + ' - ' + inv.client;
-  const fullHTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + subject + '</title></head><body>' + invoiceHTML(inv) + '</body></html>';
-  const blob = new Blob([fullHTML], {type: 'text/html'});
-  const file = new File([blob], 'Invoice_' + inv.num + '.html', {type: 'text/html'});
-
-  if (navigator.canShare && navigator.canShare({files: [file]})) {
-    navigator.share({
-      title: subject,
-      text: 'Send to: ' + (to || 'add emails in Settings'),
-      files: [file]
-    }).catch(function(){});
-  } else if (navigator.share) {
-    navigator.share({
-      title: subject,
-      text: 'Send to: ' + to + '\n\n' + invoiceText(inv)
-    }).catch(function(){});
-  } else {
-    var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(invoiceText(inv));
-    window.open(url, '_blank');
-  }
-}
-
-function openPrintPreview(inv){
-  const s = getSettings();
-  const bodyHTML = invoiceHTML(inv);
-  const title = 'Invoice #' + inv.num;
+  const cEmail = (inv && inv.clientEmail) || '';
+  const to = [cEmail, myEmail].filter(Boolean).join(',');
+  const invLink = inv ? 'https://ruthy.github.io/invoice-app/#inv=' + encodeURIComponent(JSON.stringify({num:inv.num,date:inv.date,client:inv.client,address:inv.address,phone:inv.phone,job:inv.job,lines:inv.lines,gstOn:inv.gstOn,pstOn:inv.pstOn,subtotal:inv.subtotal,gst:inv.gst,pst:inv.pst,total:inv.total,paid:inv.paid})) : '';
+  const emailBody = 'Hi ' + (inv?inv.client:'') + ',\n\nPlease find your invoice below:\n\n' + invLink + '\n\nThank you,\n' + s.name;
+  const gmailUrl = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(emailBody);
   const w = window.open('', '_blank');
-  if (!w) { alert('Please allow popups for PDF/Print'); return; }
   w.document.write(`
     <html><head><title>${title}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}
       @media print { body{background:#fff} .bar{display:none} }
-      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5}
-      .bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}
-      .bar .print-btn{background:#fff;color:#0a66c2}
-      .bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}
+      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
+      .bar button{background:#fff;color:#0a66c2;border:0;padding:12px 18px;border-radius:8px;font-weight:700;font-size:15px}
+      .bar button.email{background:#25D366;color:#fff}
+      .bar button.close{background:transparent;color:#fff;border:1px solid #fff}
+      .bar .note{width:100%;text-align:center;font-size:12px;opacity:.95;margin-top:6px;line-height:1.4}
     </style></head><body>
     <div class="bar">
-      <button class="print-btn" onclick="window.print()">🖨️ Print / PDF</button>
-      <button class="close-btn" onclick="window.close()">✕</button>
+      <button class="email" onclick="window.open('${gmailUrl}','_blank')">📧 Email</button>
+      <button onclick="window.print()">🖨️ PDF / Print</button>
+      <button class="close" onclick="window.close()">✕ Close</button>
+      <div class="note">${to ? 'To: ' + to.replace(',', ', ') : '⚠️ Add emails in Settings + invoice'}</div>
     </div>
     ${bodyHTML}
     <script>
@@ -741,7 +650,7 @@ function openPrintPreview(inv){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  sendEmail(inv);
+  openFormattedPreview(`Invoice #${inv.num} - ${inv.client}`, invoiceHTML(inv), inv);
 }
 
 function exportAll(){
@@ -749,10 +658,8 @@ function exportAll(){
   if (list.length === 0) { alert('No invoices to send.'); return; }
   const sorted = list.sort((a,b)=>a.num-b.num);
   const html = sorted.map(inv => invoiceHTML(inv) + '<div style="page-break-after:always"></div>').join('');
-  const w = window.open('', '_blank');
-  if (!w) { alert('Please allow popups'); return; }
-  w.document.write('<html><head><title>All Invoices</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}@media print{body{background:#fff}.bar{display:none}}.bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5}.bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}.bar .print-btn{background:#fff;color:#0a66c2}.bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}</style></head><body><div class="bar"><button class="print-btn" onclick="window.print()">🖨️ Print / PDF</button><button class="close-btn" onclick="window.close()">✕</button></div>' + html + '<script>window.onafterprint=function(){setTimeout(function(){window.close()},300)};<\/script></body></html>');
-  w.document.close();
+  openFormattedPreview(`${sorted.length} Invoices`, html);
+  setTimeout(()=>showTab('new'), 500);
 }
 
 function exportCSV(){
@@ -821,15 +728,12 @@ function exportCSV(){
       </table>
       <style>table td{padding:8px 10px;border-bottom:1px solid #eee}</style>
     </div>`;
-  const w = window.open('', '_blank');
-  if (!w) { alert('Please allow popups'); return; }
-  w.document.write('<html><head><title>Invoice Report</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}@media print{body{background:#fff}.bar{display:none}}.bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5}.bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}.bar .print-btn{background:#fff;color:#0a66c2}.bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}</style></head><body><div class="bar"><button class="print-btn" onclick="window.print()">🖨️ Print / PDF</button><button class="close-btn" onclick="window.close()">✕</button></div>' + html + '<script>window.onafterprint=function(){setTimeout(function(){window.close()},300)};<\/script></body></html>');
-  w.document.close();
+  openFormattedPreview('Invoice Report', html);
 }
 
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openPrintPreview(inv);
+  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
 }
 
 function wipeAll(){
@@ -847,23 +751,28 @@ document.getElementById('invNum').textContent = getNextNum();
 document.getElementById('gstSwitch').classList.add('on');
 document.getElementById('gstBox').classList.add('on');
 addLine(); addLine();
-['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
+['clientName','clientAddress','clientPhone','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
 document.getElementById('invDate').addEventListener('input', saveDraft);
-document.getElementById('clientName').addEventListener('input', showClientDropdown);
-document.getElementById('clientName').addEventListener('focus', showClientDropdown);
-document.addEventListener('click', function(e){
-  if (!e.target.closest('#clientName') && !e.target.closest('#clientDropdown'))
-    document.getElementById('clientDropdown').style.display = 'none';
-});
 
-// restore draft
+// Check if viewing a shared invoice
 (function(){
+  if (window.location.hash && window.location.hash.startsWith('#inv=')) {
+    try {
+      const data = JSON.parse(decodeURIComponent(window.location.hash.slice(5)));
+      document.querySelector('header.company').style.display = 'none';
+      document.querySelector('nav.tabs').style.display = 'none';
+      document.querySelector('main').innerHTML = '<div style="padding:10px">' + invoiceHTML(data) + '<div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:14px 30px;background:#0a66c2;color:#fff;border:0;border-radius:10px;font-size:16px;font-weight:600">🖨️ Print / Save PDF</button></div></div>';
+      document.title = 'Invoice #' + data.num + ' - ' + data.client;
+    } catch(e){}
+    return;
+  }
+
+  // restore draft
   const d = JSON.parse(localStorage.getItem(LS_DRAFT) || 'null');
   if (d && (d.client || (d.lines && d.lines.some(l=>l.desc)))) {
     document.getElementById('clientName').value = d.client || '';
     document.getElementById('clientAddress').value = d.address || '';
     document.getElementById('clientPhone').value = d.phone || '';
-    document.getElementById('clientEmail').value = d.clientEmail || '';
     document.getElementById('jobInfo').value = d.job || '';
     if (d.date) document.getElementById('invDate').value = d.date;
     document.getElementById('lineItems').innerHTML = '';
