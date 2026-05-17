@@ -336,6 +336,9 @@ function getActiveBizIndex(){
 }
 
 function setActiveBiz(idx){
+  if (idx === getActiveBizIndex()) return;
+  var biz = getBusinesses()[idx];
+  if (!confirm('Switch to "' + (biz.name || 'Unnamed') + '"?')) return;
   localStorage.setItem(LS_ACTIVE_BIZ, String(idx));
   applySettings();
   renderBusinessList();
