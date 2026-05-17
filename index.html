@@ -207,28 +207,6 @@
     <label>My Email (gets a copy of every invoice sent)</label>
     <input type="text" id="setEmail" placeholder="your@email.com">
     <div style="height:8px"></div>
-    <label>Email Script URL</label>
-    <input type="text" id="setScriptUrl" placeholder="Paste your script URL here">
-    <div style="margin-top:6px">
-      <button onclick="document.getElementById('setupGuide').style.display=document.getElementById('setupGuide').style.display==='none'?'block':'none'" style="background:#eef5ff;color:#0a66c2;border:1px solid #0a66c2;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;width:100%">Setup Guide (one time, 2 minutes)</button>
-    </div>
-    <div id="setupGuide" style="display:none;margin-top:10px;padding:14px;background:#f6f8fa;border-radius:8px;font-size:14px;line-height:1.8">
-      <strong>One-time setup:</strong><br>
-      1. Open <a href="https://script.google.com" target="_blank" style="color:#0a66c2;font-weight:700">script.google.com</a><br>
-      2. Click <strong>New Project</strong><br>
-      3. Delete everything, paste this:<br>
-      <pre style="background:#222;color:#0f0;padding:12px;border-radius:6px;margin:8px 0;font-size:12px;overflow-x:auto;white-space:pre-wrap">function doPost(e) {
-  var d = JSON.parse(e.postData.contents);
-  GmailApp.sendEmail(d.to, d.subject, '', {htmlBody: d.html});
-  return ContentService.createTextOutput('ok');
-}</pre>
-      4. Click <strong>Deploy → New deployment</strong><br>
-      5. Type: <strong>Web app</strong><br>
-      6. Who has access: <strong>Anyone</strong><br>
-      7. Click <strong>Deploy → Authorize</strong><br>
-      8. Copy the URL → paste above<br>
-      <strong style="color:#2e7d32">Done! Emails send automatically from now on.</strong>
-    </div>
     <div style="height:8px"></div>
     <label>Next Invoice #</label>
     <input type="number" id="setNext">
@@ -264,8 +242,7 @@ function getSettings(){
     name: 'BLUE SKY PLUMBING',
     addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
     phone: 'Tel: 604-800-0078 | GST# 117592584',
-    email: '',
-    scriptUrl: ''
+    email: ''
   };
 }
 function applySettings(){
@@ -276,7 +253,6 @@ function applySettings(){
   document.getElementById('setAddr').value = s.addr;
   document.getElementById('setPhone').value = s.phone;
   document.getElementById('setEmail').value = s.email || '';
-  document.getElementById('setScriptUrl').value = s.scriptUrl || '';
   document.getElementById('setNext').value = getNextNum();
 }
 function saveSettings(){
@@ -284,8 +260,7 @@ function saveSettings(){
     name: document.getElementById('setName').value.trim() || 'BLUE SKY PLUMBING',
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
-    email: document.getElementById('setEmail').value.trim(),
-    scriptUrl: document.getElementById('setScriptUrl').value.trim()
+    email: document.getElementById('setEmail').value.trim()
   };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
   const nxt = parseInt(document.getElementById('setNext').value,10);
@@ -589,74 +564,86 @@ function invoiceText(inv){
 function invoiceHTML(inv){
   const s = getSettings();
   return `
-    <div style="max-width:720px;margin:0 auto;padding:24px;font-family:-apple-system,Arial,sans-serif;color:#111">
-      <div style="background:linear-gradient(135deg,#0a66c2,#1e88e5);color:#fff;padding:16px;border-radius:10px">
-        <h1 style="margin:0;font-size:22px;letter-spacing:.5px">${escapeHtml(s.name)}</h1>
-        <div style="font-size:13px;margin-top:4px;opacity:.95">${escapeHtml(s.addr)}<br>${escapeHtml(s.phone)}</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:18px;align-items:flex-start">
+    <div style="max-width:750px;margin:0 auto;padding:0;font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;background:#fff">
+      <div style="background:#1b2a4a;padding:28px 32px;display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-size:12px;color:#666;font-weight:700;letter-spacing:.5px">BILL TO</div>
-          <div style="margin-top:4px;font-size:15px"><strong>${escapeHtml(inv.client)}</strong></div>
-          <div style="font-size:14px;color:#333">${escapeHtml(inv.address).replace(/\n/g,'<br>')}</div>
-          ${inv.phone?`<div style="font-size:14px;color:#333">${escapeHtml(inv.phone)}</div>`:''}
+          <h1 style="margin:0;font-size:26px;color:#fff;font-weight:800;letter-spacing:1px">${escapeHtml(s.name)}</h1>
+          <div style="color:#8ba3c7;font-size:13px;margin-top:6px;line-height:1.5">${escapeHtml(s.addr)}<br>${escapeHtml(s.phone)}</div>
         </div>
         <div style="text-align:right">
-          <div style="color:#c0392b;font-weight:700;font-size:22px">Invoice #${inv.num}</div>
-          <div style="color:#666;font-size:13px;margin-top:2px">${escapeHtml(inv.date)}</div>
-          <div style="display:inline-block;margin-top:8px;padding:6px 14px;border-radius:6px;font-weight:700;font-size:14px;letter-spacing:1px;border:2px solid ${inv.paid?'#2e7d32':'#c0392b'};color:${inv.paid?'#2e7d32':'#c0392b'};background:${inv.paid?'#e8f5e9':'#ffe8e8'}">${inv.paid?'✓ PAID':'● UNPAID'}</div>
+          <div style="color:#f0c040;font-size:32px;font-weight:800;letter-spacing:2px">INVOICE</div>
+          <div style="color:#fff;font-size:16px;margin-top:4px">#${inv.num}</div>
         </div>
       </div>
-      <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-top:14px;background:#fafbfc">
-        <div style="font-size:12px;color:#666;font-weight:700;letter-spacing:.5px">JOB</div>
-        <div style="margin-top:4px;font-size:14px;white-space:pre-wrap">${escapeHtml(inv.job)}</div>
+      <div style="padding:24px 32px;display:flex;justify-content:space-between;border-bottom:2px solid #e8ecf0">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1.5px;margin-bottom:6px">BILL TO</div>
+          <div style="font-size:16px;font-weight:700;color:#1b2a4a">${escapeHtml(inv.client)}</div>
+          <div style="font-size:14px;color:#555;margin-top:4px;line-height:1.5">${escapeHtml(inv.address).replace(/\n/g,'<br>')}</div>
+          ${inv.phone?`<div style="font-size:14px;color:#555">${escapeHtml(inv.phone)}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1.5px;margin-bottom:6px">INVOICE DATE</div>
+          <div style="font-size:15px;color:#1b2a4a;font-weight:600">${escapeHtml(inv.date)}</div>
+          <div style="margin-top:12px;display:inline-block;padding:6px 16px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:1px;background:${inv.paid?'#d4edda':'#fce4e4'};color:${inv.paid?'#155724':'#8b1a1a'};border:1px solid ${inv.paid?'#28a745':'#c0392b'}">${inv.paid?'PAID':'UNPAID'}</div>
+        </div>
       </div>
-      <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:14px">
-        <thead>
-          <tr style="background:#f2f4f7">
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd">Description</th>
-            <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;width:60px">Qty</th>
-            <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;width:90px">Price</th>
-            <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;width:100px">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${inv.lines.map(l=>`
-            <tr>
-              <td style="padding:8px 10px;border-bottom:1px solid #eee">${escapeHtml(l.desc)}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right">${l.qty}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right">${money(l.price)}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right">${money(l.qty*l.price)}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-      <div style="text-align:right;margin-top:14px;font-size:15px">
-        <div style="padding:3px 0">Subtotal: <strong>${money(inv.subtotal)}</strong></div>
-        ${inv.gstOn?`<div style="padding:3px 0">GST (5%): <strong>${money(inv.gst)}</strong></div>`:''}
-        ${inv.pstOn?`<div style="padding:3px 0">PST (7%): <strong>${money(inv.pst)}</strong></div>`:''}
-        <div style="padding:8px 0;margin-top:4px;border-top:2px solid #0a66c2;color:#0a66c2;font-size:20px;font-weight:700">TOTAL: ${money(inv.total)}</div>
+      <div style="padding:20px 32px;background:#f8f9fb;border-bottom:2px solid #e8ecf0">
+        <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1.5px;margin-bottom:6px">WORK PERFORMED</div>
+        <div style="font-size:14px;color:#333;white-space:pre-wrap;line-height:1.6">${escapeHtml(inv.job)}</div>
+      </div>
+      <div style="padding:0 32px">
+        <table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:14px">
+          <thead>
+            <tr style="border-bottom:2px solid #1b2a4a">
+              <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;color:#1b2a4a;letter-spacing:1px">DESCRIPTION</th>
+              <th style="padding:12px 8px;text-align:center;font-size:11px;font-weight:700;color:#1b2a4a;letter-spacing:1px;width:60px">QTY</th>
+              <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;color:#1b2a4a;letter-spacing:1px;width:100px">UNIT PRICE</th>
+              <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;color:#1b2a4a;letter-spacing:1px;width:100px">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${inv.lines.map((l,i)=>`
+              <tr style="background:${i%2===0?'#fff':'#f8f9fb'}">
+                <td style="padding:12px 8px;border-bottom:1px solid #eee">${escapeHtml(l.desc)}</td>
+                <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:center">${l.qty}</td>
+                <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right">${money(l.price)}</td>
+                <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:600">${money(l.qty*l.price)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:20px 32px;display:flex;justify-content:flex-end">
+        <div style="width:250px">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>Subtotal</span><span>${money(inv.subtotal)}</span></div>
+          ${inv.gstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>GST (5%)</span><span>${money(inv.gst)}</span></div>`:''}
+          ${inv.pstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>PST (7%)</span><span>${money(inv.pst)}</span></div>`:''}
+          <div style="display:flex;justify-content:space-between;padding:14px 0;margin-top:8px;border-top:3px solid #1b2a4a;font-size:20px;font-weight:800;color:#1b2a4a"><span>TOTAL</span><span>${money(inv.total)}</span></div>
+        </div>
+      </div>
+      <div style="background:#1b2a4a;padding:16px 32px;text-align:center;color:#8ba3c7;font-size:12px;margin-top:20px">
+        Thank you for your business &nbsp;|&nbsp; ${escapeHtml(s.name)} &nbsp;|&nbsp; ${escapeHtml(s.phone)}
       </div>
     </div>`;
 }
 
-function sendEmailViaScript(inv){
+function sendEmailViaGmail(inv){
   const s = getSettings();
-  if (!s.scriptUrl) { alert('Set up your Email Script URL in Settings first.'); showTab('settings'); return; }
   const myEmail = s.email || '';
   const cEmail = (inv && inv.clientEmail) || '';
   const to = [cEmail, myEmail].filter(Boolean).join(',');
   if (!to) { alert('Add your email in Settings and/or client email.'); return; }
-  const subject = 'Invoice #' + inv.num + ' - ' + inv.client;
-  const html = invoiceHTML(inv);
-  fetch(s.scriptUrl, {
-    method: 'POST',
-    mode: 'no-cors',
-    body: JSON.stringify({ to: to, subject: subject, html: html })
-  }).then(function(){
-    alert('Invoice emailed to: ' + to);
-  }).catch(function(err){
-    alert('Failed to send. Check Script URL in Settings.');
-  });
+  const subject = 'Invoice #' + inv.num + ' - ' + s.name;
+  const invData = {n:inv.num,d:inv.date,c:inv.client,a:inv.address,p:inv.phone,j:inv.job,l:inv.lines,g:inv.gstOn?1:0,ps:inv.pstOn?1:0,st:inv.subtotal,gt:inv.gst,pt:inv.pst,t:inv.total,pd:inv.paid?1:0};
+  const link = 'https://ruthy.github.io/invoice-app/#inv=' + encodeURIComponent(JSON.stringify(invData));
+  var body = 'Hi ' + inv.client + ',\n\n';
+  body += 'Please find your invoice from ' + s.name + '.\n\n';
+  body += 'View & Download Invoice:\n' + link + '\n\n';
+  body += 'Amount Due: $' + inv.total.toFixed(2) + '\n';
+  body += 'Invoice #' + inv.num + '  |  ' + inv.date + '\n\n';
+  body += 'Thank you,\n' + s.name + '\n' + s.phone;
+  var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  window.open(url, '_blank');
 }
 
 function openFormattedPreview(title, bodyHTML, inv){
@@ -690,7 +677,7 @@ function openFormattedPreview(title, bodyHTML, inv){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  sendEmailViaScript(inv);
+  sendEmailViaGmail(inv);
 }
 
 function printOne(id){
@@ -803,10 +790,11 @@ document.getElementById('invDate').addEventListener('input', saveDraft);
 (function(){
   if (window.location.hash && window.location.hash.startsWith('#inv=')) {
     try {
-      const data = JSON.parse(decodeURIComponent(window.location.hash.slice(5)));
+      const raw = JSON.parse(decodeURIComponent(window.location.hash.slice(5)));
+      const data = raw.num ? raw : {num:raw.n,date:raw.d,client:raw.c,address:raw.a,phone:raw.p,job:raw.j,lines:raw.l,gstOn:raw.g,pstOn:raw.ps,subtotal:raw.st,gst:raw.gt,pst:raw.pt,total:raw.t,paid:raw.pd};
       document.querySelector('header.company').style.display = 'none';
       document.querySelector('nav.tabs').style.display = 'none';
-      document.querySelector('main').innerHTML = '<div style="padding:10px">' + invoiceHTML(data) + '<div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:14px 30px;background:#0a66c2;color:#fff;border:0;border-radius:10px;font-size:16px;font-weight:600">🖨️ Print / Save PDF</button></div></div>';
+      document.querySelector('main').innerHTML = '<div style="padding:10px">' + invoiceHTML(data) + '<div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:14px 30px;background:#1b2a4a;color:#fff;border:0;border-radius:10px;font-size:16px;font-weight:600">Save as PDF / Print</button></div></div>';
       document.title = 'Invoice #' + data.num + ' - ' + data.client;
     } catch(e){}
     return;
