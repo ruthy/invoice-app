@@ -143,14 +143,20 @@
   </div>
 
   <div class="card">
-    <label>Taxes</label>
-    <div class="tax-row">
-      <div class="tax-toggle" id="gstBox" onclick="toggleTax('gst')">
+    <label>Tax Region</label>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="pay-btn active" id="regionCA" onclick="setTaxRegion('ca')">🇨🇦 Canada</button>
+      <button class="pay-btn" id="regionUS" onclick="setTaxRegion('us')">🇺🇸 USA</button>
+      <button class="pay-btn" id="regionNone" onclick="setTaxRegion('none')">No Tax</button>
+    </div>
+
+    <div id="taxCA" class="tax-row">
+      <div class="tax-toggle on" id="gstBox" onclick="toggleTax('gst')">
         <div>
           <div style="font-weight:600">GST (5%)</div>
           <div style="font-size:12px;color:#666" id="gstAmt">$0.00</div>
         </div>
-        <div class="switch" id="gstSwitch"></div>
+        <div class="switch on" id="gstSwitch"></div>
       </div>
       <div class="tax-toggle" id="pstBox" onclick="toggleTax('pst')">
         <div>
@@ -161,10 +167,20 @@
       </div>
     </div>
 
+    <div id="taxUS" style="display:none">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="pay-btn active" id="usTaxWhatcom" onclick="setUsTax('whatcom')">Whatcom 8.8%</button>
+        <button class="pay-btn" id="usTaxBlaine" onclick="setUsTax('blaine')">Blaine 9.0%</button>
+        <button class="pay-btn" id="usTaxPtRoberts" onclick="setUsTax('ptroberts')">Pt Roberts 8.8%</button>
+      </div>
+      <div style="margin-top:8px;font-size:13px;color:#666">Sales Tax: <span id="usTaxAmt">$0.00</span></div>
+    </div>
+
     <div class="totals">
       <div class="tr"><span>Subtotal</span><span id="subAmt">$0.00</span></div>
-      <div class="tr"><span>GST</span><span id="gstLine">$0.00</span></div>
-      <div class="tr"><span>PST</span><span id="pstLine">$0.00</span></div>
+      <div class="tr" id="gstRow"><span>GST (5%)</span><span id="gstLine">$0.00</span></div>
+      <div class="tr" id="pstRow"><span>PST (7%)</span><span id="pstLine">$0.00</span></div>
+      <div class="tr" id="usTaxRow" style="display:none"><span id="usTaxLabel">Sales Tax (8.8%)</span><span id="usTaxLine">$0.00</span></div>
       <div class="tr grand"><span>TOTAL</span><span id="totalAmt">$0.00</span></div>
     </div>
   </div>
@@ -473,26 +489,59 @@ function readLines(){
   return out;
 }
 
-let taxState = {gst:true, pst:false};
+let taxState = {region:'ca', gst:true, pst:false, usCity:'whatcom'};
+const US_TAX_RATES = {whatcom: 0.088, blaine: 0.09, ptroberts: 0.088};
+const US_TAX_LABELS = {whatcom: 'Whatcom (8.8%)', blaine: 'Blaine (9.0%)', ptroberts: 'Pt Roberts (8.8%)'};
+
+function setTaxRegion(r){
+  taxState.region = r;
+  document.getElementById('regionCA').classList.toggle('active', r==='ca');
+  document.getElementById('regionUS').classList.toggle('active', r==='us');
+  document.getElementById('regionNone').classList.toggle('active', r==='none');
+  document.getElementById('taxCA').style.display = r==='ca' ? 'flex' : 'none';
+  document.getElementById('taxUS').style.display = r==='us' ? 'block' : 'none';
+  document.getElementById('gstRow').style.display = r==='ca' ? '' : 'none';
+  document.getElementById('pstRow').style.display = r==='ca' ? '' : 'none';
+  document.getElementById('usTaxRow').style.display = r==='us' ? '' : 'none';
+  recompute(); saveDraft();
+}
+
+function setUsTax(city){
+  taxState.usCity = city;
+  document.getElementById('usTaxWhatcom').classList.toggle('active', city==='whatcom');
+  document.getElementById('usTaxBlaine').classList.toggle('active', city==='blaine');
+  document.getElementById('usTaxPtRoberts').classList.toggle('active', city==='ptroberts');
+  document.getElementById('usTaxLabel').textContent = US_TAX_LABELS[city];
+  recompute(); saveDraft();
+}
+
 function toggleTax(k){
   taxState[k] = !taxState[k];
   document.getElementById(k+'Switch').classList.toggle('on', taxState[k]);
   document.getElementById(k+'Box').classList.toggle('on', taxState[k]);
   recompute(); saveDraft();
 }
+
 function recompute(){
   const lines = readLines();
   const sub = lines.reduce((s,l)=> s + (l.qty * l.price), 0);
-  const gst = taxState.gst ? sub * 0.05 : 0;
-  const pst = taxState.pst ? sub * 0.07 : 0;
-  const tot = sub + gst + pst;
+  var gst=0, pst=0, usTax=0;
+  if (taxState.region === 'ca') {
+    gst = taxState.gst ? sub * 0.05 : 0;
+    pst = taxState.pst ? sub * 0.07 : 0;
+  } else if (taxState.region === 'us') {
+    usTax = sub * (US_TAX_RATES[taxState.usCity] || 0.088);
+  }
+  const tot = sub + gst + pst + usTax;
   document.getElementById('subAmt').textContent = money(sub);
   document.getElementById('gstLine').textContent = money(gst);
   document.getElementById('pstLine').textContent = money(pst);
   document.getElementById('gstAmt').textContent = money(gst);
   document.getElementById('pstAmt').textContent = money(pst);
+  document.getElementById('usTaxAmt').textContent = money(usTax);
+  document.getElementById('usTaxLine').textContent = money(usTax);
   document.getElementById('totalAmt').textContent = money(tot);
-  return {sub, gst, pst, tot};
+  return {sub, gst, pst, usTax, tot};
 }
 
 function saveDraft(){
@@ -501,7 +550,7 @@ function saveDraft(){
 }
 
 function collect(finalize){
-  const {sub, gst, pst, tot} = recompute();
+  const {sub, gst, pst, usTax, tot} = recompute();
   return {
     id: editingId || Date.now(),
     num: parseInt(document.getElementById('invNum').textContent,10),
@@ -511,9 +560,11 @@ function collect(finalize){
     phone: document.getElementById('clientPhone').value.trim(),
     job: document.getElementById('jobInfo').value.trim(),
     lines: readLines(),
+    taxRegion: taxState.region,
     gstOn: taxState.gst,
     pstOn: taxState.pst,
-    subtotal: sub, gst, pst, total: tot,
+    usCity: taxState.usCity,
+    subtotal: sub, gst, pst, usTax, total: tot,
     payMethod: editingId ? (getInvoices().find(x=>x.id===editingId)?.payMethod || '') : '',
     chequeNum: editingId ? (getInvoices().find(x=>x.id===editingId)?.chequeNum || '') : '',
     paid: editingId ? (getInvoices().find(x=>x.id===editingId)?.paid || false) : false,
@@ -647,11 +698,13 @@ function clearForm(confirmFirst){
   ['clientName','clientAddress','clientPhone','jobInfo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('lineItems').innerHTML = '';
   addLine(); addLine();
-  taxState = {gst:true, pst:false};
+  taxState = {region:'ca', gst:true, pst:false, usCity:'whatcom'};
+  setTaxRegion('ca');
   document.getElementById('gstSwitch').classList.add('on');
   document.getElementById('gstBox').classList.add('on');
   document.getElementById('pstSwitch').classList.remove('on');
   document.getElementById('pstBox').classList.remove('on');
+  setUsTax('whatcom');
   currentReceipts = [];
   renderReceiptPreviews();
   recompute();
@@ -670,11 +723,13 @@ function loadInvoice(id){
   document.getElementById('jobInfo').value = inv.job;
   document.getElementById('lineItems').innerHTML = '';
   (inv.lines && inv.lines.length ? inv.lines : [{}]).forEach(l => addLine(l.desc||'', l.qty||'', l.price||''));
-  taxState = {gst: !!inv.gstOn, pst: !!inv.pstOn};
+  taxState = {region: inv.taxRegion || 'ca', gst: !!inv.gstOn, pst: !!inv.pstOn, usCity: inv.usCity || 'whatcom'};
+  setTaxRegion(taxState.region);
   document.getElementById('gstSwitch').classList.toggle('on', taxState.gst);
   document.getElementById('gstBox').classList.toggle('on', taxState.gst);
   document.getElementById('pstSwitch').classList.toggle('on', taxState.pst);
   document.getElementById('pstBox').classList.toggle('on', taxState.pst);
+  setUsTax(taxState.usCity);
   currentReceipts = (inv.receipts || []).slice();
   renderReceiptPreviews();
   recompute();
@@ -859,8 +914,9 @@ function invoiceText(inv){
   });
   t += dash + '\n';
   t += pad('Subtotal:', W - 11) + pad(money(inv.subtotal), 11) + '\n';
-  if (inv.gstOn) t += pad('GST (5%):', W - 11) + pad(money(inv.gst), 11) + '\n';
-  if (inv.pstOn) t += pad('PST (7%):', W - 11) + pad(money(inv.pst), 11) + '\n';
+  if (inv.taxRegion==='ca'&&inv.gstOn) t += pad('GST (5%):', W - 11) + pad(money(inv.gst), 11) + '\n';
+  if (inv.taxRegion==='ca'&&inv.pstOn) t += pad('PST (7%):', W - 11) + pad(money(inv.pst), 11) + '\n';
+  if (inv.taxRegion==='us') t += pad('Sales Tax ('+( US_TAX_LABELS[inv.usCity]||'8.8%')+'):', W - 11) + pad(money(inv.usTax||0), 11) + '\n';
   t += pad('TOTAL:', W - 11) + pad(money(inv.total), 11) + '\n';
   t += line + '\n';
   return t;
@@ -925,8 +981,9 @@ function invoiceHTML(inv){
         </div>` : '<div></div>'}
         <div style="width:250px">
           <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>Subtotal</span><span>${money(inv.subtotal)}</span></div>
-          ${inv.gstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>GST (5%)</span><span>${money(inv.gst)}</span></div>`:''}
-          ${inv.pstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>PST (7%)</span><span>${money(inv.pst)}</span></div>`:''}
+          ${inv.taxRegion==='ca'&&inv.gstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>GST (5%)</span><span>${money(inv.gst)}</span></div>`:''}
+          ${inv.taxRegion==='ca'&&inv.pstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>PST (7%)</span><span>${money(inv.pst)}</span></div>`:''}
+          ${inv.taxRegion==='us'?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>Sales Tax – ${US_TAX_LABELS[inv.usCity]||'8.8%'}</span><span>${money(inv.usTax||0)}</span></div>`:''}
           <div style="display:flex;justify-content:space-between;padding:14px 0;margin-top:8px;border-top:3px solid #1b2a4a;font-size:20px;font-weight:800;color:#1b2a4a"><span>TOTAL</span><span>${money(inv.total)}</span></div>
         </div>
       </div>
@@ -984,8 +1041,9 @@ function sendEmailViaGmail(inv){
   });
   body += '────────────────────────────────────────\n';
   body += '                 Subtotal:  $' + inv.subtotal.toFixed(2) + '\n';
-  if (inv.gstOn) body += '                 GST (5%):  $' + inv.gst.toFixed(2) + '\n';
-  if (inv.pstOn) body += '                 PST (7%):  $' + inv.pst.toFixed(2) + '\n';
+  if (inv.taxRegion==='ca'&&inv.gstOn) body += '                 GST (5%):  $' + inv.gst.toFixed(2) + '\n';
+  if (inv.taxRegion==='ca'&&inv.pstOn) body += '                 PST (7%):  $' + inv.pst.toFixed(2) + '\n';
+  if (inv.taxRegion==='us') body += '        Sales Tax ('+( US_TAX_LABELS[inv.usCity]||'8.8%')+'):  $' + (inv.usTax||0).toFixed(2) + '\n';
   body += '                 ───────────────────\n';
   body += '                 TOTAL:     $' + inv.total.toFixed(2) + '\n\n';
   if (inv.payMethod) {
