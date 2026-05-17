@@ -3,8 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Blue Sky">
 <meta name="theme-color" content="#0a66c2">
 <title>Blue Sky Plumbing - Invoices</title>
@@ -460,7 +458,7 @@ function saveInvoice(){
   clearForm(false);
   alert('Invoice #' + inv.num + ' saved.');
   if (getSettings().autoEmail) {
-    shareInvoice(inv);
+    sendEmail(inv);
   }
   showTab('saved');
 }
@@ -682,26 +680,14 @@ function invoiceHTML(inv){
     </div>`;
 }
 
-function shareInvoice(inv){
+function sendEmail(inv){
   const s = getSettings();
   const myEmail = s.email || '';
   const cEmail = inv.clientEmail || '';
-  const title = 'Invoice #' + inv.num + ' - ' + inv.client;
-  const recipients = [cEmail, myEmail].filter(Boolean).join(', ');
-  const text = invoiceText(inv) + (recipients ? '\n\nSEND TO: ' + recipients : '');
-
-  if (navigator.share) {
-    navigator.share({ title: title, text: text }).then(function(){
-      alert('Shared! Remember to address it to: ' + recipients);
-    }).catch(function(){});
-  } else {
-    var a = document.createElement('a');
-    a.href = 'mailto:' + encodeURIComponent(recipients) + '?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(invoiceText(inv));
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+  const to = [cEmail, myEmail].filter(Boolean).join(',');
+  const subject = 'Invoice #' + inv.num + ' - ' + inv.client;
+  const body = invoiceText(inv);
+  window.location.href = 'mailto:' + to + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 }
 
 function openPrintPreview(inv){
@@ -736,7 +722,7 @@ function openPrintPreview(inv){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  shareInvoice(inv);
+  sendEmail(inv);
 }
 
 function exportAll(){
