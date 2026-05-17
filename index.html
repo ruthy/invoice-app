@@ -158,6 +158,25 @@
     </div>
   </div>
 
+  <div class="card">
+    <label>Payment Method</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="payMethodBtns">
+      <button type="button" class="pay-btn" data-m="" onclick="setPayMethod('')">None</button>
+      <button type="button" class="pay-btn" data-m="etransfer" onclick="setPayMethod('etransfer')">E-Transfer</button>
+      <button type="button" class="pay-btn" data-m="cheque" onclick="setPayMethod('cheque')">Cheque</button>
+      <button type="button" class="pay-btn" data-m="wire" onclick="setPayMethod('wire')">Wire</button>
+      <button type="button" class="pay-btn" data-m="cash" onclick="setPayMethod('cash')">Cash</button>
+    </div>
+    <div id="chequeNumRow" style="display:none;margin-top:10px">
+      <label>Cheque #</label>
+      <input type="text" id="chequeNum" placeholder="CHQ #" oninput="saveDraft()">
+    </div>
+  </div>
+  <style>
+    .pay-btn{padding:10px 16px;border-radius:8px;border:1px solid #d0d5dc;background:#f6f8fa;font-size:14px;font-weight:600;color:#555}
+    .pay-btn.active{background:#1b2a4a;color:#fff;border-color:#1b2a4a}
+  </style>
+
   <div class="actions">
     <button class="btn ghost" onclick="clearForm(true)">Clear</button>
     <button class="btn primary" onclick="saveInvoice()">Save Invoice</button>
@@ -396,9 +415,19 @@ function collect(finalize){
     gstOn: taxState.gst,
     pstOn: taxState.pst,
     subtotal: sub, gst, pst, total: tot,
+    payMethod: currentPayMethod,
+    chequeNum: document.getElementById('chequeNum').value.trim(),
     paid: editingId ? (getInvoices().find(x=>x.id===editingId)?.paid || false) : false,
     savedAt: new Date().toISOString()
   };
+}
+
+var currentPayMethod = '';
+function setPayMethod(m){
+  currentPayMethod = m;
+  document.querySelectorAll('.pay-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.m === m); });
+  document.getElementById('chequeNumRow').style.display = m === 'cheque' ? 'block' : 'none';
+  saveDraft();
 }
 
 function togglePaid(id){
@@ -443,6 +472,8 @@ function clearForm(confirmFirst){
   document.getElementById('gstBox').classList.add('on');
   document.getElementById('pstSwitch').classList.remove('on');
   document.getElementById('pstBox').classList.remove('on');
+  setPayMethod('');
+  document.getElementById('chequeNum').value = '';
   recompute();
   localStorage.removeItem(LS_DRAFT);
 }
@@ -464,6 +495,8 @@ function loadInvoice(id){
   document.getElementById('gstBox').classList.toggle('on', taxState.gst);
   document.getElementById('pstSwitch').classList.toggle('on', taxState.pst);
   document.getElementById('pstBox').classList.toggle('on', taxState.pst);
+  setPayMethod(inv.payMethod || '');
+  document.getElementById('chequeNum').value = inv.chequeNum || '';
   recompute();
   showTab('new');
 }
@@ -645,7 +678,11 @@ function invoiceHTML(inv){
           </tbody>
         </table>
       </div>
-      <div style="padding:20px 32px;display:flex;justify-content:flex-end">
+      <div style="padding:20px 32px;display:flex;justify-content:space-between;align-items:flex-end">
+        ${inv.payMethod ? `<div style="padding:10px 16px;background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px">
+          <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1px">PAID VIA</div>
+          <div style="font-size:16px;font-weight:700;color:#1b2a4a;margin-top:2px">${inv.payMethod==='etransfer'?'E-Transfer':inv.payMethod==='cheque'?'Cheque'+(inv.chequeNum?' #'+escapeHtml(inv.chequeNum):''):inv.payMethod==='wire'?'Wire Transfer':inv.payMethod==='cash'?'Cash':escapeHtml(inv.payMethod)}</div>
+        </div>` : '<div></div>'}
         <div style="width:250px">
           <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>Subtotal</span><span>${money(inv.subtotal)}</span></div>
           ${inv.gstOn?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#555"><span>GST (5%)</span><span>${money(inv.gst)}</span></div>`:''}
@@ -711,6 +748,10 @@ function sendEmailViaGmail(inv){
   if (inv.pstOn) body += '                 PST (7%):  $' + inv.pst.toFixed(2) + '\n';
   body += '                 ───────────────────\n';
   body += '                 TOTAL:     $' + inv.total.toFixed(2) + '\n\n';
+  if (inv.payMethod) {
+    var pm = inv.payMethod === 'etransfer' ? 'E-Transfer' : inv.payMethod === 'cheque' ? 'Cheque' + (inv.chequeNum ? ' #' + inv.chequeNum : '') : inv.payMethod === 'wire' ? 'Wire Transfer' : inv.payMethod === 'cash' ? 'Cash' : inv.payMethod;
+    body += '  Paid via: ' + pm + '\n';
+  }
   body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
   body += '  Status: ' + (inv.paid ? 'PAID' : 'PAYMENT DUE') + '\n';
   body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
