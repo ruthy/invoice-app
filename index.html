@@ -692,7 +692,7 @@ function invoiceHTML(inv){
         <div style="text-align:right">
           <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1.5px;margin-bottom:6px">INVOICE DATE</div>
           <div style="font-size:15px;color:#1b2a4a;font-weight:600">${escapeHtml(inv.date)}</div>
-          <div style="margin-top:12px;display:inline-block;padding:6px 16px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:1px;background:${inv.paid?'#d4edda':'#fce4e4'};color:${inv.paid?'#155724':'#8b1a1a'};border:1px solid ${inv.paid?'#28a745':'#c0392b'}">${inv.paid?'PAID':'UNPAID'}</div>
+          <div style="margin-top:12px;display:inline-block;padding:6px 16px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:1px;background:${inv.paid?'#d4edda':'#fce4e4'};color:${inv.paid?'#155724':'#8b1a1a'};border:1px solid ${inv.paid?'#28a745':'#c0392b'}">${inv.paid ? 'PAID' + (inv.payMethod ? ' by ' + (inv.payMethod==='etransfer'?'E-Transfer':inv.payMethod==='cheque'?'Cheque'+(inv.chequeNum?' #'+escapeHtml(inv.chequeNum):''):inv.payMethod==='wire'?'Wire':inv.payMethod==='cash'?'Cash':escapeHtml(inv.payMethod)) : '') : 'UNPAID'}</div>
         </div>
       </div>
       <div style="padding:20px 32px;background:#f8f9fb;border-bottom:2px solid #e8ecf0">
