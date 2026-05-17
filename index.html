@@ -214,6 +214,12 @@
 <!-- SETTINGS TAB -->
 <section id="viewSettings" style="display:none">
   <div class="card">
+    <label style="font-size:14px;color:#1b2a4a;margin-bottom:8px">My Businesses</label>
+    <div id="businessList" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <button onclick="addBusiness()" style="width:100%;padding:10px;background:#f6f8fa;border:1px dashed #1b2a4a;border-radius:8px;font-size:13px;font-weight:600;color:#1b2a4a">+ Add New Business</button>
+  </div>
+
+  <div class="card">
     <label>Company Name</label>
     <input type="text" id="setName">
     <div style="height:8px"></div>
@@ -228,8 +234,9 @@
     <div style="height:8px"></div>
     <label>Next Invoice #</label>
     <input type="number" id="setNext">
-    <div class="actions">
-      <button class="btn primary" onclick="saveSettings()">Save Settings</button>
+    <div class="actions" style="display:flex;gap:10px">
+      <button class="btn primary" onclick="saveSettings()" style="flex:1">Save Settings</button>
+      <button class="btn" onclick="deleteBusiness()" style="flex:0 0 auto;background:#dc3545;color:#fff;font-size:12px;padding:8px 14px">Delete This Business</button>
     </div>
   </div>
 
@@ -288,6 +295,8 @@ const LS_INVOICES = 'bsp_invoices_v1';
 const LS_NEXT = 'bsp_next_num_v1';
 const LS_SETTINGS = 'bsp_settings_v1';
 const LS_DRAFT = 'bsp_draft_v1';
+const LS_BUSINESSES = 'bsp_businesses_v1';
+const LS_ACTIVE_BIZ = 'bsp_active_biz';
 
 let editingId = null;
 
@@ -296,17 +305,84 @@ function todayStr(){
   const d = new Date();
   return d.toLocaleDateString('en-CA', {year:'numeric', month:'short', day:'numeric'});
 }
+
+function getBusinesses(){
+  var list = JSON.parse(localStorage.getItem(LS_BUSINESSES) || 'null');
+  if (!list || !list.length) {
+    var old = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null');
+    if (old && old.name) {
+      list = [old];
+    } else {
+      list = [{
+        name: 'BLUE SKY PLUMBING',
+        addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
+        phone: 'Tel: 604-800-0078 | GST# 117592584',
+        email: '',
+        payEtransfer: '',
+        payCheque: '',
+        payWire: ''
+      }];
+    }
+    localStorage.setItem(LS_BUSINESSES, JSON.stringify(list));
+  }
+  return list;
+}
+
+function getActiveBizIndex(){
+  var idx = parseInt(localStorage.getItem(LS_ACTIVE_BIZ) || '0', 10);
+  var list = getBusinesses();
+  if (idx < 0 || idx >= list.length) idx = 0;
+  return idx;
+}
+
+function setActiveBiz(idx){
+  localStorage.setItem(LS_ACTIVE_BIZ, String(idx));
+  applySettings();
+  renderBusinessList();
+}
+
 function getSettings(){
-  return JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || {
-    name: 'BLUE SKY PLUMBING',
-    addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
-    phone: 'Tel: 604-800-0078 | GST# 117592584',
+  return getBusinesses()[getActiveBizIndex()];
+}
+
+function addBusiness(){
+  var list = getBusinesses();
+  list.push({
+    name: 'NEW BUSINESS',
+    addr: '',
+    phone: '',
     email: '',
     payEtransfer: '',
     payCheque: '',
     payWire: ''
-  };
+  });
+  localStorage.setItem(LS_BUSINESSES, JSON.stringify(list));
+  localStorage.setItem(LS_ACTIVE_BIZ, String(list.length - 1));
+  applySettings();
+  renderBusinessList();
 }
+
+function deleteBusiness(){
+  var list = getBusinesses();
+  if (list.length <= 1) { alert('You need at least one business.'); return; }
+  if (!confirm('Delete this business profile?')) return;
+  var idx = getActiveBizIndex();
+  list.splice(idx, 1);
+  localStorage.setItem(LS_BUSINESSES, JSON.stringify(list));
+  localStorage.setItem(LS_ACTIVE_BIZ, '0');
+  applySettings();
+  renderBusinessList();
+}
+
+function renderBusinessList(){
+  var list = getBusinesses();
+  var idx = getActiveBizIndex();
+  var el = document.getElementById('businessList');
+  el.innerHTML = list.map(function(b, i){
+    return '<button onclick="setActiveBiz('+i+')" style="padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;border:2px solid '+(i===idx?'#1b2a4a':'#d0d5dc')+';background:'+(i===idx?'#1b2a4a':'#fff')+';color:'+(i===idx?'#fff':'#555')+'">'+ (b.name || 'Unnamed').substring(0,20) +'</button>';
+  }).join('');
+}
+
 function applySettings(){
   const s = getSettings();
   document.getElementById('coName').textContent = s.name;
@@ -319,10 +395,13 @@ function applySettings(){
   document.getElementById('payCheque').value = s.payCheque || '';
   document.getElementById('payWire').value = s.payWire || '';
   document.getElementById('setNext').value = getNextNum();
+  renderBusinessList();
 }
 function saveSettings(){
-  const s = {
-    name: document.getElementById('setName').value.trim() || 'BLUE SKY PLUMBING',
+  var list = getBusinesses();
+  var idx = getActiveBizIndex();
+  list[idx] = {
+    name: document.getElementById('setName').value.trim() || 'BUSINESS',
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
     email: document.getElementById('setEmail').value.trim(),
@@ -330,7 +409,7 @@ function saveSettings(){
     payCheque: document.getElementById('payCheque').value.trim(),
     payWire: document.getElementById('payWire').value.trim()
   };
-  localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+  localStorage.setItem(LS_BUSINESSES, JSON.stringify(list));
   const nxt = parseInt(document.getElementById('setNext').value,10);
   if (!isNaN(nxt) && nxt >= 1000) localStorage.setItem(LS_NEXT, String(nxt));
   applySettings();
