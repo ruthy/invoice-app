@@ -207,11 +207,34 @@
     <label>My Email (gets a copy of every invoice sent)</label>
     <input type="text" id="setEmail" placeholder="your@email.com">
     <div style="height:8px"></div>
-    <div style="height:8px"></div>
     <label>Next Invoice #</label>
     <input type="number" id="setNext">
     <div class="actions">
       <button class="btn primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label style="font-size:14px;color:#1b2a4a;margin-bottom:10px">Payment Methods (shown on invoice)</label>
+    <div style="font-size:12px;color:#666;margin-bottom:12px">Fill in the methods you accept. Leave blank to hide from invoice.</div>
+
+    <div style="background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:12px;margin-bottom:10px">
+      <label style="color:#1b2a4a">E-Transfer</label>
+      <input type="text" id="payEtransfer" placeholder="Email for e-transfer (e.g. pay@company.com)">
+    </div>
+
+    <div style="background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:12px;margin-bottom:10px">
+      <label style="color:#1b2a4a">Cheque</label>
+      <input type="text" id="payCheque" placeholder="Payable to &amp; mailing address">
+    </div>
+
+    <div style="background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:12px;margin-bottom:10px">
+      <label style="color:#1b2a4a">Wire Transfer</label>
+      <input type="text" id="payWire" placeholder="Bank, Transit, Account #">
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" onclick="saveSettings()">Save Payment Info</button>
     </div>
   </div>
   <div class="card">
@@ -242,7 +265,10 @@ function getSettings(){
     name: 'BLUE SKY PLUMBING',
     addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
     phone: 'Tel: 604-800-0078 | GST# 117592584',
-    email: ''
+    email: '',
+    payEtransfer: '',
+    payCheque: '',
+    payWire: ''
   };
 }
 function applySettings(){
@@ -253,6 +279,9 @@ function applySettings(){
   document.getElementById('setAddr').value = s.addr;
   document.getElementById('setPhone').value = s.phone;
   document.getElementById('setEmail').value = s.email || '';
+  document.getElementById('payEtransfer').value = s.payEtransfer || '';
+  document.getElementById('payCheque').value = s.payCheque || '';
+  document.getElementById('payWire').value = s.payWire || '';
   document.getElementById('setNext').value = getNextNum();
 }
 function saveSettings(){
@@ -260,7 +289,10 @@ function saveSettings(){
     name: document.getElementById('setName').value.trim() || 'BLUE SKY PLUMBING',
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
-    email: document.getElementById('setEmail').value.trim()
+    email: document.getElementById('setEmail').value.trim(),
+    payEtransfer: document.getElementById('payEtransfer').value.trim(),
+    payCheque: document.getElementById('payCheque').value.trim(),
+    payWire: document.getElementById('payWire').value.trim()
   };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
   const nxt = parseInt(document.getElementById('setNext').value,10);
@@ -621,7 +653,25 @@ function invoiceHTML(inv){
           <div style="display:flex;justify-content:space-between;padding:14px 0;margin-top:8px;border-top:3px solid #1b2a4a;font-size:20px;font-weight:800;color:#1b2a4a"><span>TOTAL</span><span>${money(inv.total)}</span></div>
         </div>
       </div>
-      <div style="background:#1b2a4a;padding:16px 32px;text-align:center;color:#8ba3c7;font-size:12px;margin-top:20px">
+      ${(s.payEtransfer || s.payCheque || s.payWire) ? `
+      <div style="padding:20px 32px;border-top:2px solid #e8ecf0">
+        <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1.5px;margin-bottom:12px">PAYMENT METHODS</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          ${s.payEtransfer ? `<div style="flex:1;min-width:180px;background:#f0faf0;border:1px solid #c8e6c9;border-radius:8px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:#2e7d32;letter-spacing:1px;margin-bottom:4px">E-TRANSFER</div>
+            <div style="font-size:14px;color:#1b2a4a;font-weight:600">${escapeHtml(s.payEtransfer)}</div>
+          </div>` : ''}
+          ${s.payCheque ? `<div style="flex:1;min-width:180px;background:#f5f5ff;border:1px solid #c5cae9;border-radius:8px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:#283593;letter-spacing:1px;margin-bottom:4px">CHEQUE</div>
+            <div style="font-size:14px;color:#1b2a4a;font-weight:600">${escapeHtml(s.payCheque)}</div>
+          </div>` : ''}
+          ${s.payWire ? `<div style="flex:1;min-width:180px;background:#fff8f0;border:1px solid #ffe0b2;border-radius:8px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:#e65100;letter-spacing:1px;margin-bottom:4px">WIRE TRANSFER</div>
+            <div style="font-size:14px;color:#1b2a4a;font-weight:600">${escapeHtml(s.payWire)}</div>
+          </div>` : ''}
+        </div>
+      </div>` : ''}
+      <div style="background:#1b2a4a;padding:16px 32px;text-align:center;color:#8ba3c7;font-size:12px;margin-top:${(s.payEtransfer || s.payCheque || s.payWire) ? '0' : '20px'}">
         Thank you for your business &nbsp;|&nbsp; ${escapeHtml(s.name)} &nbsp;|&nbsp; ${escapeHtml(s.phone)}
       </div>
     </div>`;
@@ -634,14 +684,44 @@ function sendEmailViaGmail(inv){
   const to = [cEmail, myEmail].filter(Boolean).join(',');
   if (!to) { alert('Add your email in Settings and/or client email.'); return; }
   const subject = 'Invoice #' + inv.num + ' - ' + s.name;
-  const invData = {n:inv.num,d:inv.date,c:inv.client,a:inv.address,p:inv.phone,j:inv.job,l:inv.lines,g:inv.gstOn?1:0,ps:inv.pstOn?1:0,st:inv.subtotal,gt:inv.gst,pt:inv.pst,t:inv.total,pd:inv.paid?1:0};
-  const link = 'https://ruthy.github.io/invoice-app/#inv=' + encodeURIComponent(JSON.stringify(invData));
-  var body = 'Hi ' + inv.client + ',\n\n';
-  body += 'Please find your invoice from ' + s.name + '.\n\n';
-  body += 'View & Download Invoice:\n' + link + '\n\n';
-  body += 'Amount Due: $' + inv.total.toFixed(2) + '\n';
-  body += 'Invoice #' + inv.num + '  |  ' + inv.date + '\n\n';
-  body += 'Thank you,\n' + s.name + '\n' + s.phone;
+  var body = '';
+  body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+  body += '         ' + s.name + '\n';
+  body += '         ' + s.addr + '\n';
+  body += '         ' + s.phone + '\n';
+  body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+  body += '  INVOICE #' + inv.num + '          ' + inv.date + '\n';
+  body += '────────────────────────────────────────\n\n';
+  body += '  BILL TO:\n';
+  body += '  ' + inv.client + '\n';
+  if (inv.address) body += '  ' + inv.address.replace(/\n/g, '\n  ') + '\n';
+  if (inv.phone) body += '  ' + inv.phone + '\n';
+  body += '\n────────────────────────────────────────\n';
+  body += '  WORK PERFORMED:\n';
+  body += '  ' + (inv.job || '').replace(/\n/g, '\n  ') + '\n';
+  body += '\n────────────────────────────────────────\n';
+  body += '  ITEMS:\n\n';
+  inv.lines.forEach(function(l){
+    body += '  ' + l.desc + '\n';
+    body += '      ' + l.qty + ' x $' + l.price.toFixed(2) + ' = $' + (l.qty*l.price).toFixed(2) + '\n\n';
+  });
+  body += '────────────────────────────────────────\n';
+  body += '                 Subtotal:  $' + inv.subtotal.toFixed(2) + '\n';
+  if (inv.gstOn) body += '                 GST (5%):  $' + inv.gst.toFixed(2) + '\n';
+  if (inv.pstOn) body += '                 PST (7%):  $' + inv.pst.toFixed(2) + '\n';
+  body += '                 ───────────────────\n';
+  body += '                 TOTAL:     $' + inv.total.toFixed(2) + '\n\n';
+  body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+  body += '  Status: ' + (inv.paid ? 'PAID' : 'PAYMENT DUE') + '\n';
+  body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+  if (s.payEtransfer || s.payCheque || s.payWire) {
+    body += '  PAYMENT METHODS:\n\n';
+    if (s.payEtransfer) body += '  E-Transfer:  ' + s.payEtransfer + '\n';
+    if (s.payCheque) body += '  Cheque:      ' + s.payCheque + '\n';
+    if (s.payWire) body += '  Wire:        ' + s.payWire + '\n';
+    body += '\n────────────────────────────────────────\n\n';
+  }
+  body += 'Thank you for your business.\n' + s.name;
   var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
   window.open(url, '_blank');
 }
