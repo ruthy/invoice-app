@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -138,25 +135,6 @@
     <label>Labour & Items Purchased</label>
     <div id="lineItems"></div>
     <button class="add-line" onclick="addLine()">+ Add line</button>
-  </div>
-
-  <div class="card">
-    <label>Payment Method</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap" id="payMethods">
-      <button class="pay-btn" data-p="cheque" onclick="setPayMethod('cheque')">Cheque</button>
-      <button class="pay-btn" data-p="e-transfer" onclick="setPayMethod('e-transfer')">E-Transfer</button>
-      <button class="pay-btn" data-p="cash" onclick="setPayMethod('cash')">Cash</button>
-      <button class="pay-btn" data-p="wire" onclick="setPayMethod('wire')">Wire</button>
-      <button class="pay-btn" data-p="checking" onclick="setPayMethod('checking')">Checking</button>
-    </div>
-    <div id="chequeNumRow" style="display:none;margin-top:8px">
-      <label>Cheque #</label>
-      <input type="text" id="chequeNum" placeholder="Cheque number">
-    </div>
-    <style>
-      .pay-btn{padding:8px 14px;border-radius:20px;border:1px solid #0a66c2;background:#fff;color:#0a66c2;font-weight:600;font-size:13px}
-      .pay-btn.active{background:#0a66c2;color:#fff}
-    </style>
   </div>
 
   <div class="card">
@@ -407,14 +385,6 @@ function readLines(){
   return out;
 }
 
-let payMethod = '';
-function setPayMethod(m){
-  payMethod = (payMethod === m) ? '' : m;
-  document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.p === payMethod));
-  document.getElementById('chequeNumRow').style.display = payMethod === 'cheque' ? 'block' : 'none';
-  saveDraft();
-}
-
 let taxState = {gst:true, pst:false};
 function toggleTax(k){
   taxState[k] = !taxState[k];
@@ -456,8 +426,6 @@ function collect(finalize){
     lines: readLines(),
     gstOn: taxState.gst,
     pstOn: taxState.pst,
-    payMethod: payMethod,
-    chequeNum: document.getElementById('chequeNum').value.trim(),
     subtotal: sub, gst, pst, total: tot,
     paid: editingId ? (getInvoices().find(x=>x.id===editingId)?.paid || false) : false,
     savedAt: new Date().toISOString()
@@ -490,10 +458,11 @@ function saveInvoice(){
   const savedId = inv.id;
   editingId = null;
   clearForm(false);
-  showTab('saved');
+  alert('Invoice #' + inv.num + ' saved.');
   if (getSettings().autoEmail) {
     shareInvoice(inv);
   }
+  showTab('saved');
 }
 
 function clearForm(confirmFirst){
@@ -501,10 +470,7 @@ function clearForm(confirmFirst){
   editingId = null;
   document.getElementById('invNum').textContent = getNextNum();
   document.getElementById('invDate').value = todayStr();
-  ['clientName','clientAddress','clientPhone','clientEmail','jobInfo','chequeNum'].forEach(id=>document.getElementById(id).value='');
-  payMethod = '';
-  document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('chequeNumRow').style.display = 'none';
+  ['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('lineItems').innerHTML = '';
   addLine(); addLine();
   taxState = {gst:true, pst:false};
@@ -527,10 +493,6 @@ function loadInvoice(id){
   document.getElementById('clientPhone').value = inv.phone || '';
   document.getElementById('clientEmail').value = inv.clientEmail || '';
   document.getElementById('jobInfo').value = inv.job;
-  payMethod = inv.payMethod || '';
-  document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.p === payMethod));
-  document.getElementById('chequeNum').value = inv.chequeNum || '';
-  document.getElementById('chequeNumRow').style.display = payMethod === 'cheque' ? 'block' : 'none';
   document.getElementById('lineItems').innerHTML = '';
   (inv.lines && inv.lines.length ? inv.lines : [{}]).forEach(l => addLine(l.desc||'', l.qty||'', l.price||''));
   taxState = {gst: !!inv.gstOn, pst: !!inv.pstOn};
@@ -607,7 +569,8 @@ function invoiceCard(inv){
       <div class="btns">
         <button style="background:${inv.paid?'#ffe8e8':'#e8f5e9'};color:${inv.paid?'#c0392b':'#2e7d32'}" onclick="togglePaid(${inv.id})">${inv.paid?'Mark Unpaid':'Mark Paid'}</button>
         <button style="background:#eef5ff;color:#0a66c2" onclick="loadInvoice(${inv.id})">Edit</button>
-        <button style="background:#25D366;color:#fff" onclick="emailOne(${inv.id})">📤 Share</button>
+        <button style="background:#fff3cd;color:#8a6d00" onclick="emailOne(${inv.id})">Email</button>
+        <button style="background:#f0f0f0;color:#333" onclick="printOne(${inv.id})">PDF</button>
         <button style="background:#ffe8e8;color:#c0392b" onclick="deleteOne(${inv.id})">Delete</button>
       </div>
     </div>
@@ -663,11 +626,6 @@ function invoiceText(inv){
   if (inv.pstOn) t += pad('PST (7%):', W - 11) + pad(money(inv.pst), 11) + '\n';
   t += pad('TOTAL:', W - 11) + pad(money(inv.total), 11) + '\n';
   t += line + '\n';
-  if (inv.payMethod) {
-    t += 'PAYMENT: ' + inv.payMethod.toUpperCase();
-    if (inv.payMethod === 'cheque' && inv.chequeNum) t += ' — CHQ# ' + inv.chequeNum;
-    t += '\n';
-  }
   return t;
 }
 
@@ -721,64 +679,50 @@ function invoiceHTML(inv){
         ${inv.pstOn?`<div style="padding:3px 0">PST (7%): <strong>${money(inv.pst)}</strong></div>`:''}
         <div style="padding:8px 0;margin-top:4px;border-top:2px solid #0a66c2;color:#0a66c2;font-size:20px;font-weight:700">TOTAL: ${money(inv.total)}</div>
       </div>
-      ${inv.payMethod ? `<div style="margin-top:14px;padding:10px 14px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-        <div><span style="font-size:12px;color:#666;font-weight:700;letter-spacing:.5px">PAYMENT METHOD</span><br>
-        <span style="font-size:16px;font-weight:600">${inv.payMethod.toUpperCase()}${inv.payMethod==='cheque'&&inv.chequeNum?' — CHQ# '+escapeHtml(inv.chequeNum):''}</span></div>
-      </div>` : ''}
     </div>`;
 }
 
 function shareInvoice(inv){
   const s = getSettings();
-  const title = `Invoice #${inv.num} - ${inv.client}`;
-  const lines = (inv.lines||[]).map(l => l.desc+': $'+(l.qty*l.price).toFixed(2)).join('\n');
-  const text = s.name+'\n'+s.addr+'\n\n'+title+'\nDate: '+(inv.date||'')+'\nClient: '+inv.client+'\n'+(inv.address||'')+'\n\n'+lines+'\n\nTotal: $'+(inv.total||0).toFixed(2)+(inv.payMethod?'\nPayment: '+inv.payMethod.toUpperCase()+(inv.chequeNum?' CHQ#'+inv.chequeNum:''):'');
+  const myEmail = s.email || '';
+  const cEmail = inv.clientEmail || '';
+  const title = 'Invoice #' + inv.num + ' - ' + inv.client;
+  const recipients = [cEmail, myEmail].filter(Boolean).join(', ');
+  const text = invoiceText(inv) + (recipients ? '\n\nSEND TO: ' + recipients : '');
+
   if (navigator.share) {
-    navigator.share({title: title, text: text}).catch(function(){});
+    navigator.share({ title: title, text: text }).then(function(){
+      alert('Shared! Remember to address it to: ' + recipients);
+    }).catch(function(){});
   } else {
-    window.open('mailto:?subject='+encodeURIComponent(title)+'&body='+encodeURIComponent(text), '_blank');
+    var a = document.createElement('a');
+    a.href = 'mailto:' + encodeURIComponent(recipients) + '?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(invoiceText(inv));
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 }
 
-function openFormattedPreview(title, bodyHTML, clientEmail, inv){
+function openPrintPreview(inv){
   const s = getSettings();
-  const myEmail = s.email || '';
-  const cEmail = clientEmail || '';
-  let shortBody = title;
-  if (inv && inv.client) {
-    const lines = (inv.lines||[]).map(function(l){return l.desc+': $'+(l.qty*l.price).toFixed(2)}).join('\n');
-    shortBody = s.name+'\n'+s.addr+'\n\n'+title+' | '+inv.date+'\nClient: '+inv.client+'\n'+(inv.address||'')+'\n\n'+lines+'\n\nTotal: $'+inv.total.toFixed(2);
-  }
+  const bodyHTML = invoiceHTML(inv);
+  const title = 'Invoice #' + inv.num;
   const w = window.open('', '_blank');
+  if (!w) { alert('Please allow popups for PDF/Print'); return; }
   w.document.write(`
     <html><head><title>${title}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}
       @media print { body{background:#fff} .bar{display:none} }
-      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
+      .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5}
       .bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}
-      .bar .email-btn{background:#25D366;color:#fff}
       .bar .print-btn{background:#fff;color:#0a66c2}
       .bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}
-      .bar .note{width:100%;text-align:center;font-size:11px;opacity:.95;margin-top:4px;line-height:1.4}
-      .bar .disabled{background:#999;color:#fff;opacity:.5}
-    </style>
-    <script>
-      var _subj = ${JSON.stringify(title)};
-      var _body = ${JSON.stringify(shortBody)};
-      function doShare(){
-        if (navigator.share) {
-          navigator.share({title: _subj, text: _body}).catch(function(){});
-        } else {
-          window.open('mailto:?subject='+encodeURIComponent(_subj)+'&body='+encodeURIComponent(_body), '_blank');
-        }
-      }
-    </script>
-    </head><body>
+    </style></head><body>
     <div class="bar">
-      <button class="email-btn" onclick="doShare()">📤 Share / Email</button>
-      <button class="print-btn" onclick="window.print()">🖨️ PDF</button>
+      <button class="print-btn" onclick="window.print()">🖨️ Print / PDF</button>
       <button class="close-btn" onclick="window.close()">✕</button>
     </div>
     ${bodyHTML}
@@ -800,8 +744,10 @@ function exportAll(){
   if (list.length === 0) { alert('No invoices to send.'); return; }
   const sorted = list.sort((a,b)=>a.num-b.num);
   const html = sorted.map(inv => invoiceHTML(inv) + '<div style="page-break-after:always"></div>').join('');
-  openFormattedPreview(`${sorted.length} Invoices`, html);
-  setTimeout(()=>showTab('new'), 500);
+  const w = window.open('', '_blank');
+  if (!w) { alert('Please allow popups'); return; }
+  w.document.write('<html><head><title>All Invoices</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}@media print{body{background:#fff}.bar{display:none}}.bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5}.bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}.bar .print-btn{background:#fff;color:#0a66c2}.bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}</style></head><body><div class="bar"><button class="print-btn" onclick="window.print()">🖨️ Print / PDF</button><button class="close-btn" onclick="window.close()">✕</button></div>' + html + '<script>window.onafterprint=function(){setTimeout(function(){window.close()},300)};<\/script></body></html>');
+  w.document.close();
 }
 
 function exportCSV(){
@@ -870,12 +816,15 @@ function exportCSV(){
       </table>
       <style>table td{padding:8px 10px;border-bottom:1px solid #eee}</style>
     </div>`;
-  openFormattedPreview('Invoice Report', html);
+  const w = window.open('', '_blank');
+  if (!w) { alert('Please allow popups'); return; }
+  w.document.write('<html><head><title>Invoice Report</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}@media print{body{background:#fff}.bar{display:none}}.bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px 8px;display:flex;gap:6px;justify-content:center;z-index:5}.bar button{border:0;padding:12px 14px;border-radius:8px;font-weight:700;font-size:14px}.bar .print-btn{background:#fff;color:#0a66c2}.bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}</style></head><body><div class="bar"><button class="print-btn" onclick="window.print()">🖨️ Print / PDF</button><button class="close-btn" onclick="window.close()">✕</button></div>' + html + '<script>window.onafterprint=function(){setTimeout(function(){window.close()},300)};<\/script></body></html>');
+  w.document.close();
 }
 
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv), inv.clientEmail, inv);
+  openPrintPreview(inv);
 }
 
 function wipeAll(){
@@ -893,7 +842,7 @@ document.getElementById('invNum').textContent = getNextNum();
 document.getElementById('gstSwitch').classList.add('on');
 document.getElementById('gstBox').classList.add('on');
 addLine(); addLine();
-['clientName','clientAddress','clientPhone','clientEmail','jobInfo','chequeNum'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
+['clientName','clientAddress','clientPhone','clientEmail','jobInfo'].forEach(id => document.getElementById(id).addEventListener('input', saveDraft));
 document.getElementById('invDate').addEventListener('input', saveDraft);
 document.getElementById('clientName').addEventListener('input', showClientDropdown);
 document.getElementById('clientName').addEventListener('focus', showClientDropdown);
@@ -911,9 +860,6 @@ document.addEventListener('click', function(e){
     document.getElementById('clientPhone').value = d.phone || '';
     document.getElementById('clientEmail').value = d.clientEmail || '';
     document.getElementById('jobInfo').value = d.job || '';
-    if (d.payMethod) { payMethod = d.payMethod; document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.p === payMethod)); }
-    document.getElementById('chequeNum').value = d.chequeNum || '';
-    document.getElementById('chequeNumRow').style.display = payMethod === 'cheque' ? 'block' : 'none';
     if (d.date) document.getElementById('invDate').value = d.date;
     document.getElementById('lineItems').innerHTML = '';
     (d.lines && d.lines.length ? d.lines : [{},{}]).forEach(l => addLine(l.desc||'',l.qty||'',l.price||''));
