@@ -211,29 +211,6 @@
     <label>My Email (receives copy of every invoice)</label>
     <input type="text" id="setEmail" placeholder="your@email.com">
     <div style="height:8px"></div>
-    <label>Google Script URL (for auto-send)</label>
-    <input type="text" id="setScriptUrl" placeholder="https://script.google.com/macros/s/...">
-    <div style="font-size:11px;color:#666;margin-top:4px">
-      <button onclick="document.getElementById('setupGuide').style.display=document.getElementById('setupGuide').style.display==='none'?'block':'none'" style="background:#eef5ff;color:#0a66c2;border:1px solid #0a66c2;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600">How to get Script URL (one-time setup)</button>
-    </div>
-    <div id="setupGuide" style="display:none;margin-top:10px;padding:12px;background:#f6f8fa;border-radius:8px;font-size:13px;line-height:1.6">
-      <strong>One-time setup (2 minutes):</strong><br>
-      1. Go to <a href="https://script.google.com" target="_blank">script.google.com</a><br>
-      2. Click <strong>New Project</strong><br>
-      3. Delete all text and paste this code:<br>
-      <div style="background:#222;color:#0f0;padding:10px;border-radius:6px;margin:8px 0;font-family:monospace;font-size:11px;overflow-x:auto;white-space:pre">function doPost(e) {
-  var data = JSON.parse(e.postData.contents);
-  GmailApp.sendEmail(data.to, data.subject, '', {htmlBody: data.html});
-  return ContentService.createTextOutput('sent');
-}</div>
-      4. Click <strong>Deploy</strong> > <strong>New deployment</strong><br>
-      5. Type = <strong>Web app</strong><br>
-      6. "Who has access" = <strong>Anyone</strong><br>
-      7. Click <strong>Deploy</strong> > <strong>Authorize</strong> (allow Gmail access)<br>
-      8. Copy the <strong>URL</strong> and paste it above<br>
-      <strong>Done! Emails will send automatically from your Gmail.</strong>
-    </div>
-    <div style="height:8px"></div>
     <div class="tax-toggle" id="autoEmailBox" onclick="toggleAutoEmail()" style="margin-bottom:8px">
       <div>
         <div style="font-weight:600">Auto-email on Save</div>
@@ -316,7 +293,6 @@ function getSettings(){
     addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
     phone: 'Tel: 604-800-0078 | GST# 117592584',
     email: '',
-    scriptUrl: '',
     autoEmail: false
   };
 }
@@ -334,7 +310,6 @@ function applySettings(){
   document.getElementById('setAddr').value = s.addr;
   document.getElementById('setPhone').value = s.phone;
   document.getElementById('setEmail').value = s.email || '';
-  document.getElementById('setScriptUrl').value = s.scriptUrl || '';
   document.getElementById('setNext').value = getNextNum();
   document.getElementById('autoEmailSwitch').classList.toggle('on', !!s.autoEmail);
   document.getElementById('autoEmailBox').classList.toggle('on', !!s.autoEmail);
@@ -345,7 +320,6 @@ function saveSettings(){
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
     email: document.getElementById('setEmail').value.trim(),
-    scriptUrl: document.getElementById('setScriptUrl').value.trim(),
     autoEmail: getSettings().autoEmail
   };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
@@ -482,9 +456,9 @@ function saveInvoice(){
   const savedId = inv.id;
   editingId = null;
   clearForm(false);
-  if (getSettings().autoEmail && getSettings().scriptUrl) {
+  if (getSettings().autoEmail) {
+    alert('Invoice #' + inv.num + ' saved. Tap your email app to send.');
     sendEmail(inv);
-    alert('Invoice #' + inv.num + ' saved & emailed.');
   } else {
     alert('Invoice #' + inv.num + ' saved.');
   }
@@ -712,21 +686,27 @@ function sendEmail(inv){
   const s = getSettings();
   const myEmail = s.email || '';
   const cEmail = inv.clientEmail || '';
-  const to = [cEmail, myEmail].filter(Boolean).join(',');
-  if (!to) { alert('Add your email in Settings and/or client email on the invoice.'); return; }
-  if (!s.scriptUrl) { alert('Set up your Google Script URL in Settings to send emails.'); return; }
+  const to = [cEmail, myEmail].filter(Boolean).join(', ');
   const subject = 'Invoice #' + inv.num + ' - ' + inv.client;
-  const html = invoiceHTML(inv);
-  fetch(s.scriptUrl, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ to: to, subject: subject, html: html })
-  }).then(function(){
-    console.log('Email sent to: ' + to);
-  }).catch(function(err){
-    alert('Email failed: ' + err.message);
-  });
+  const fullHTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + subject + '</title></head><body>' + invoiceHTML(inv) + '</body></html>';
+  const blob = new Blob([fullHTML], {type: 'text/html'});
+  const file = new File([blob], 'Invoice_' + inv.num + '.html', {type: 'text/html'});
+
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    navigator.share({
+      title: subject,
+      text: 'Send to: ' + (to || 'add emails in Settings'),
+      files: [file]
+    }).catch(function(){});
+  } else if (navigator.share) {
+    navigator.share({
+      title: subject,
+      text: 'Send to: ' + to + '\n\n' + invoiceText(inv)
+    }).catch(function(){});
+  } else {
+    var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(invoiceText(inv));
+    window.open(url, '_blank');
+  }
 }
 
 function openPrintPreview(inv){
