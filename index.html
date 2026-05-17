@@ -666,46 +666,54 @@ function invoiceCard(inv){
         <button style="background:#eef5ff;color:#0a66c2" onclick="loadInvoice(${inv.id})">Edit</button>
         <button style="background:#25D366;color:#fff" onclick="emailOne(${inv.id})">Email</button>
         <button style="background:#fff3cd;color:#8a6d00" onclick="printOne(${inv.id})">PDF</button>
-        ${inv.receipts && inv.receipts.length ? `<button style="background:#e8eaf6;color:#283593" onclick="viewReceipts(${inv.id})">📷 ${inv.receipts.length}</button>` : ''}
+        <button style="background:#e8eaf6;color:#283593" onclick="sendToAccountant(${inv.id})">Accountant</button>
         <button style="background:#ffe8e8;color:#c0392b" onclick="deleteOne(${inv.id})">Delete</button>
       </div>
     </div>
   `;
 }
 
-function viewReceipts(id){
+function sendToAccountant(id){
   const inv = getInvoices().find(x=>x.id===id);
-  if (!inv || !inv.receipts || !inv.receipts.length) return;
+  if (!inv) return;
   const s = getSettings();
+  if (!s.email) { alert('Set your email in Settings first.'); return; }
+  const receiptsHTML = (inv.receipts && inv.receipts.length) ? `
+    <div style="page-break-before:always;padding:32px;max-width:750px;margin:0 auto">
+      <div style="background:#1b2a4a;color:#fff;padding:16px 24px;border-radius:8px;margin-bottom:16px">
+        <h2 style="margin:0;font-size:18px">Purchase Receipts - Invoice #${inv.num}</h2>
+        <div style="font-size:13px;opacity:.8;margin-top:4px">${escapeHtml(inv.client)} | ${escapeHtml(inv.date)}</div>
+      </div>
+      ${inv.receipts.map(function(r,i){ return '<img src="'+r+'" style="display:block;max-width:100%;margin:12px auto;border-radius:8px;border:1px solid #ddd">'; }).join('')}
+    </div>` : '';
   const w = window.open('', '_blank');
   w.document.write(`
-    <html><head><title>Receipts - Invoice #${inv.num}</title>
+    <html><head><title>Invoice #${inv.num} + Receipts</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       body{margin:0;background:#f2f4f7;font-family:-apple-system,Arial,sans-serif}
-      .bar{position:sticky;top:0;background:#1b2a4a;color:#fff;padding:14px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap}
+      @media print { body{background:#fff} .bar{display:none} }
+      .bar{position:sticky;top:0;background:#1b2a4a;color:#fff;padding:12px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap}
       .bar button{border:0;padding:12px 16px;border-radius:8px;font-weight:700;font-size:14px}
-      .bar .send{background:#25D366;color:#fff}
-      .bar .close{background:transparent;color:#fff;border:1px solid #fff}
-      img{display:block;max-width:100%;margin:12px auto;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+      .bar .email-btn{background:#25D366;color:#fff}
+      .bar .print-btn{background:#fff;color:#1b2a4a}
+      .bar .close-btn{background:transparent;color:#fff;border:1px solid #fff}
     </style></head><body>
     <div class="bar">
-      <button class="send" onclick="sendToAccountant()">Send to Accountant</button>
-      <button class="close" onclick="window.close()">Close</button>
+      <button class="email-btn" onclick="emailAccountant()">Email to Accountant</button>
+      <button class="print-btn" onclick="window.print()">Save as PDF</button>
+      <button class="close-btn" onclick="window.close()">Close</button>
     </div>
-    <div style="padding:16px;text-align:center">
-      <h3 style="color:#1b2a4a">Receipts for Invoice #${inv.num} - ${escapeHtml(inv.client)}</h3>
-      ${inv.receipts.map(function(r,i){ return '<img src="'+r+'" alt="Receipt '+(i+1)+'">'; }).join('')}
-    </div>
+    ${invoiceHTML(inv)}
+    ${receiptsHTML}
     <script>
-      function sendToAccountant(){
-        var email = '${escapeHtml(s.email)}';
-        if (!email) { alert('Set your email in Settings first.'); return; }
-        var subject = 'Receipts - Invoice #${inv.num} - ${escapeHtml(inv.client)}';
-        var body = 'Attached are the purchase receipts for Invoice #${inv.num} (${escapeHtml(inv.client)}).';
-        var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(email) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      function emailAccountant(){
+        var subject = 'Invoice #${inv.num} + Receipts - ${escapeHtml(inv.client)}';
+        var body = 'Invoice #${inv.num} for ${escapeHtml(inv.client)}\\nTotal: $${inv.total.toFixed(2)}\\nDate: ${escapeHtml(inv.date)}\\n\\nPlease see attached PDF with invoice and purchase receipts.';
+        var url = 'https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(s.email)}&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
         window.open(url, '_blank');
       }
+      window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 300); };
     <\/script>
     </body></html>
   `);
