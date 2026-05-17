@@ -204,8 +204,31 @@
     <label>Phone / GST line</label>
     <input type="text" id="setPhone">
     <div style="height:8px"></div>
-    <label>Accounting Email</label>
-    <input type="text" id="setEmail" placeholder="accountant@example.com">
+    <label>My Email (gets a copy of every invoice sent)</label>
+    <input type="text" id="setEmail" placeholder="your@email.com">
+    <div style="height:8px"></div>
+    <label>Email Script URL</label>
+    <input type="text" id="setScriptUrl" placeholder="Paste your script URL here">
+    <div style="margin-top:6px">
+      <button onclick="document.getElementById('setupGuide').style.display=document.getElementById('setupGuide').style.display==='none'?'block':'none'" style="background:#eef5ff;color:#0a66c2;border:1px solid #0a66c2;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;width:100%">Setup Guide (one time, 2 minutes)</button>
+    </div>
+    <div id="setupGuide" style="display:none;margin-top:10px;padding:14px;background:#f6f8fa;border-radius:8px;font-size:14px;line-height:1.8">
+      <strong>One-time setup:</strong><br>
+      1. Open <a href="https://script.google.com" target="_blank" style="color:#0a66c2;font-weight:700">script.google.com</a><br>
+      2. Click <strong>New Project</strong><br>
+      3. Delete everything, paste this:<br>
+      <pre style="background:#222;color:#0f0;padding:12px;border-radius:6px;margin:8px 0;font-size:12px;overflow-x:auto;white-space:pre-wrap">function doPost(e) {
+  var d = JSON.parse(e.postData.contents);
+  GmailApp.sendEmail(d.to, d.subject, '', {htmlBody: d.html});
+  return ContentService.createTextOutput('ok');
+}</pre>
+      4. Click <strong>Deploy → New deployment</strong><br>
+      5. Type: <strong>Web app</strong><br>
+      6. Who has access: <strong>Anyone</strong><br>
+      7. Click <strong>Deploy → Authorize</strong><br>
+      8. Copy the URL → paste above<br>
+      <strong style="color:#2e7d32">Done! Emails send automatically from now on.</strong>
+    </div>
     <div style="height:8px"></div>
     <label>Next Invoice #</label>
     <input type="number" id="setNext">
@@ -241,7 +264,8 @@ function getSettings(){
     name: 'BLUE SKY PLUMBING',
     addr: '3043 West 1st Ave, Vancouver, BC V6K 1M9',
     phone: 'Tel: 604-800-0078 | GST# 117592584',
-    email: ''
+    email: '',
+    scriptUrl: ''
   };
 }
 function applySettings(){
@@ -252,6 +276,7 @@ function applySettings(){
   document.getElementById('setAddr').value = s.addr;
   document.getElementById('setPhone').value = s.phone;
   document.getElementById('setEmail').value = s.email || '';
+  document.getElementById('setScriptUrl').value = s.scriptUrl || '';
   document.getElementById('setNext').value = getNextNum();
 }
 function saveSettings(){
@@ -259,7 +284,8 @@ function saveSettings(){
     name: document.getElementById('setName').value.trim() || 'BLUE SKY PLUMBING',
     addr: document.getElementById('setAddr').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
-    email: document.getElementById('setEmail').value.trim()
+    email: document.getElementById('setEmail').value.trim(),
+    scriptUrl: document.getElementById('setScriptUrl').value.trim()
   };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
   const nxt = parseInt(document.getElementById('setNext').value,10);
@@ -500,7 +526,8 @@ function invoiceCard(inv){
       <div class="btns">
         <button style="background:${inv.paid?'#ffe8e8':'#e8f5e9'};color:${inv.paid?'#c0392b':'#2e7d32'}" onclick="togglePaid(${inv.id})">${inv.paid?'Mark Unpaid':'Mark Paid'}</button>
         <button style="background:#eef5ff;color:#0a66c2" onclick="loadInvoice(${inv.id})">Edit</button>
-        <button style="background:#fff3cd;color:#8a6d00" onclick="emailOne(${inv.id})">Send</button>
+        <button style="background:#25D366;color:#fff" onclick="emailOne(${inv.id})">Email</button>
+        <button style="background:#fff3cd;color:#8a6d00" onclick="printOne(${inv.id})">PDF</button>
         <button style="background:#ffe8e8;color:#c0392b" onclick="deleteOne(${inv.id})">Delete</button>
       </div>
     </div>
@@ -612,14 +639,31 @@ function invoiceHTML(inv){
     </div>`;
 }
 
+function sendEmailViaScript(inv){
+  const s = getSettings();
+  if (!s.scriptUrl) { alert('Set up your Email Script URL in Settings first.'); showTab('settings'); return; }
+  const myEmail = s.email || '';
+  const cEmail = (inv && inv.clientEmail) || '';
+  const to = [cEmail, myEmail].filter(Boolean).join(',');
+  if (!to) { alert('Add your email in Settings and/or client email.'); return; }
+  const subject = 'Invoice #' + inv.num + ' - ' + inv.client;
+  const html = invoiceHTML(inv);
+  fetch(s.scriptUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify({ to: to, subject: subject, html: html })
+  }).then(function(){
+    alert('Invoice emailed to: ' + to);
+  }).catch(function(err){
+    alert('Failed to send. Check Script URL in Settings.');
+  });
+}
+
 function openFormattedPreview(title, bodyHTML, inv){
   const s = getSettings();
   const myEmail = s.email || '';
   const cEmail = (inv && inv.clientEmail) || '';
   const to = [cEmail, myEmail].filter(Boolean).join(',');
-  const invLink = inv ? 'https://ruthy.github.io/invoice-app/#inv=' + encodeURIComponent(JSON.stringify({num:inv.num,date:inv.date,client:inv.client,address:inv.address,phone:inv.phone,job:inv.job,lines:inv.lines,gstOn:inv.gstOn,pstOn:inv.pstOn,subtotal:inv.subtotal,gst:inv.gst,pst:inv.pst,total:inv.total,paid:inv.paid})) : '';
-  const emailBody = 'Hi ' + (inv?inv.client:'') + ',\n\nPlease find your invoice below:\n\n' + invLink + '\n\nThank you,\n' + s.name;
-  const gmailUrl = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(emailBody);
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>${title}</title>
@@ -629,15 +673,11 @@ function openFormattedPreview(title, bodyHTML, inv){
       @media print { body{background:#fff} .bar{display:none} }
       .bar{position:sticky;top:0;background:#0a66c2;color:#fff;padding:12px;display:flex;gap:8px;justify-content:center;z-index:5;flex-wrap:wrap;align-items:center}
       .bar button{background:#fff;color:#0a66c2;border:0;padding:12px 18px;border-radius:8px;font-weight:700;font-size:15px}
-      .bar button.email{background:#25D366;color:#fff}
       .bar button.close{background:transparent;color:#fff;border:1px solid #fff}
-      .bar .note{width:100%;text-align:center;font-size:12px;opacity:.95;margin-top:6px;line-height:1.4}
     </style></head><body>
     <div class="bar">
-      <button class="email" onclick="window.open('${gmailUrl}','_blank')">📧 Email</button>
       <button onclick="window.print()">🖨️ PDF / Print</button>
       <button class="close" onclick="window.close()">✕ Close</button>
-      <div class="note">${to ? 'To: ' + to.replace(',', ', ') : '⚠️ Add emails in Settings + invoice'}</div>
     </div>
     ${bodyHTML}
     <script>
@@ -650,7 +690,12 @@ function openFormattedPreview(title, bodyHTML, inv){
 
 function emailOne(id){
   const inv = getInvoices().find(x=>x.id===id);
-  openFormattedPreview(`Invoice #${inv.num} - ${inv.client}`, invoiceHTML(inv), inv);
+  sendEmailViaScript(inv);
+}
+
+function printOne(id){
+  const inv = getInvoices().find(x=>x.id===id);
+  openFormattedPreview('Invoice #' + inv.num, invoiceHTML(inv), inv);
 }
 
 function exportAll(){
