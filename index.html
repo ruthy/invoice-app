@@ -81,11 +81,14 @@
 </head>
 <body>
 
-<header class="company">
-  <h1 id="coName">BLUE SKY PLUMBING</h1>
-  <div class="meta" id="coMeta">
-    3043 West 1st Ave, Vancouver, BC V6K 1M9<br>
-    Tel: 604-800-0078 &nbsp;|&nbsp; GST# 117592584
+<header class="company" style="display:flex;align-items:center;gap:12px">
+  <img id="coLogo" src="" style="max-height:45px;max-width:90px;border-radius:4px;display:none">
+  <div>
+    <h1 id="coName">BLUE SKY PLUMBING</h1>
+    <div class="meta" id="coMeta">
+      3043 West 1st Ave, Vancouver, BC V6K 1M9<br>
+      Tel: 604-800-0078 &nbsp;|&nbsp; GST# 117592584
+    </div>
   </div>
 </header>
 
@@ -236,6 +239,16 @@
   </div>
 
   <div class="card">
+    <label>Company Logo</label>
+    <div id="logoPreview" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px">
+      <label style="flex:1;padding:10px;background:#f6f8fa;border:1px dashed #1b2a4a;border-radius:8px;font-size:13px;font-weight:600;color:#1b2a4a;text-align:center;cursor:pointer">
+        Upload Logo
+        <input type="file" accept="image/*" onchange="uploadLogo(this)" style="display:none">
+      </label>
+      <button onclick="removeLogo()" style="padding:10px 14px;background:#fff;border:1px solid #dc3545;border-radius:8px;font-size:13px;font-weight:600;color:#dc3545">Remove</button>
+    </div>
+    <div style="height:12px"></div>
     <label>Company Name</label>
     <input type="text" id="setName">
     <div style="height:8px"></div>
@@ -402,10 +415,50 @@ function renderBusinessList(){
   }).join('');
 }
 
+var currentLogo = '';
+
+function uploadLogo(input){
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var canvas = document.createElement('canvas');
+      var maxH = 200, maxW = 400;
+      var w = img.width, h = img.height;
+      if (h > maxH) { w = w * (maxH/h); h = maxH; }
+      if (w > maxW) { h = h * (maxW/w); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      currentLogo = canvas.toDataURL('image/png', 0.8);
+      renderLogoPreview();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+  input.value = '';
+}
+
+function removeLogo(){
+  currentLogo = '';
+  renderLogoPreview();
+}
+
+function renderLogoPreview(){
+  var el = document.getElementById('logoPreview');
+  if (currentLogo) {
+    el.innerHTML = '<img src="'+currentLogo+'" style="max-height:70px;max-width:200px;border-radius:6px;border:1px solid #e2e6ea;padding:4px;background:#fff">';
+  } else {
+    el.innerHTML = '<div style="color:#999;font-size:12px">No logo uploaded</div>';
+  }
+}
+
 function applySettings(){
   const s = getSettings();
   document.getElementById('coName').textContent = s.name;
   document.getElementById('coMeta').innerHTML = s.addr + '<br>' + s.phone;
+  var logoEl = document.getElementById('coLogo');
+  if (s.logo) { logoEl.src = s.logo; logoEl.style.display = ''; } else { logoEl.style.display = 'none'; }
   document.getElementById('setName').value = s.name;
   document.getElementById('setAddr').value = s.addr;
   document.getElementById('setPhone').value = s.phone;
@@ -414,6 +467,8 @@ function applySettings(){
   document.getElementById('payCheque').value = s.payCheque || '';
   document.getElementById('payWire').value = s.payWire || '';
   document.getElementById('setNext').value = getNextNum();
+  currentLogo = s.logo || '';
+  renderLogoPreview();
   renderBusinessList();
 }
 function saveSettings(){
@@ -426,7 +481,8 @@ function saveSettings(){
     email: document.getElementById('setEmail').value.trim(),
     payEtransfer: document.getElementById('payEtransfer').value.trim(),
     payCheque: document.getElementById('payCheque').value.trim(),
-    payWire: document.getElementById('payWire').value.trim()
+    payWire: document.getElementById('payWire').value.trim(),
+    logo: currentLogo
   };
   localStorage.setItem(LS_BUSINESSES, JSON.stringify(list));
   const nxt = parseInt(document.getElementById('setNext').value,10);
@@ -927,9 +983,12 @@ function invoiceHTML(inv){
   return `
     <div style="max-width:750px;margin:0 auto;padding:0;font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;background:#fff">
       <div style="background:#1b2a4a;padding:28px 32px;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <h1 style="margin:0;font-size:26px;color:#fff;font-weight:800;letter-spacing:1px">${escapeHtml(s.name)}</h1>
-          <div style="color:#8ba3c7;font-size:13px;margin-top:6px;line-height:1.5">${escapeHtml(s.addr)}<br>${escapeHtml(s.phone)}</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          ${s.logo ? '<img src="'+s.logo+'" style="max-height:60px;max-width:120px;border-radius:4px">' : ''}
+          <div>
+            <h1 style="margin:0;font-size:26px;color:#fff;font-weight:800;letter-spacing:1px">${escapeHtml(s.name)}</h1>
+            <div style="color:#8ba3c7;font-size:13px;margin-top:6px;line-height:1.5">${escapeHtml(s.addr)}<br>${escapeHtml(s.phone)}</div>
+          </div>
         </div>
         <div style="text-align:right">
           <div style="color:#f0c040;font-size:32px;font-weight:800;letter-spacing:2px">INVOICE</div>
