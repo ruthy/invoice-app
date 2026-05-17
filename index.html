@@ -158,23 +158,12 @@
     </div>
   </div>
 
-  <div class="card">
-    <label>Payment Method</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="payMethodBtns">
-      <button type="button" class="pay-btn" data-m="" onclick="setPayMethod('')">None</button>
-      <button type="button" class="pay-btn" data-m="etransfer" onclick="setPayMethod('etransfer')">E-Transfer</button>
-      <button type="button" class="pay-btn" data-m="cheque" onclick="setPayMethod('cheque')">Cheque</button>
-      <button type="button" class="pay-btn" data-m="wire" onclick="setPayMethod('wire')">Wire</button>
-      <button type="button" class="pay-btn" data-m="cash" onclick="setPayMethod('cash')">Cash</button>
-    </div>
-    <div id="chequeNumRow" style="display:none;margin-top:10px">
-      <label>Cheque #</label>
-      <input type="text" id="chequeNum" placeholder="CHQ #" oninput="saveDraft()">
-    </div>
-  </div>
   <style>
     .pay-btn{padding:10px 16px;border-radius:8px;border:1px solid #d0d5dc;background:#f6f8fa;font-size:14px;font-weight:600;color:#555}
     .pay-btn.active{background:#1b2a4a;color:#fff;border-color:#1b2a4a}
+    .pay-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center}
+    .pay-modal.show{display:flex}
+    .pay-modal-box{background:#fff;border-radius:14px;padding:24px;width:90%;max-width:340px;text-align:center}
   </style>
 
   <div class="actions">
@@ -265,6 +254,23 @@
 </section>
 
 </main>
+
+<div class="pay-modal" id="payModal">
+  <div class="pay-modal-box">
+    <div style="font-weight:700;font-size:18px;color:#1b2a4a;margin-bottom:16px">How did the client pay?</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="pay-btn" onclick="confirmPaid('etransfer')">E-Transfer</button>
+      <button class="pay-btn" onclick="confirmPaid('cheque')">Cheque</button>
+      <button class="pay-btn" onclick="confirmPaid('wire')">Wire Transfer</button>
+      <button class="pay-btn" onclick="confirmPaid('cash')">Cash</button>
+    </div>
+    <div id="chequeRow" style="display:none;margin-top:10px">
+      <input type="text" id="chequeNumInput" placeholder="Cheque # (optional)" style="width:100%;padding:10px;border:1px solid #d0d5dc;border-radius:8px;font-size:16px;margin-bottom:8px">
+      <button onclick="savePaidStatus()" style="width:100%;padding:12px;background:#1b2a4a;color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:700">Done</button>
+    </div>
+    <button onclick="closePayModal()" style="margin-top:14px;padding:10px 20px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#666;font-size:14px;font-weight:600">Cancel</button>
+  </div>
+</div>
 
 <script>
 const LS_INVOICES = 'bsp_invoices_v1';
@@ -415,28 +421,68 @@ function collect(finalize){
     gstOn: taxState.gst,
     pstOn: taxState.pst,
     subtotal: sub, gst, pst, total: tot,
-    payMethod: currentPayMethod,
-    chequeNum: document.getElementById('chequeNum').value.trim(),
+    payMethod: editingId ? (getInvoices().find(x=>x.id===editingId)?.payMethod || '') : '',
+    chequeNum: editingId ? (getInvoices().find(x=>x.id===editingId)?.chequeNum || '') : '',
     paid: editingId ? (getInvoices().find(x=>x.id===editingId)?.paid || false) : false,
     savedAt: new Date().toISOString()
   };
 }
 
-var currentPayMethod = '';
-function setPayMethod(m){
-  currentPayMethod = m;
-  document.querySelectorAll('.pay-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.m === m); });
-  document.getElementById('chequeNumRow').style.display = m === 'cheque' ? 'block' : 'none';
-  saveDraft();
+var payModalInvId = null;
+var payModalMethod = '';
+
+function openPayModal(id){
+  payModalInvId = id;
+  payModalMethod = '';
+  document.getElementById('chequeRow').style.display = 'none';
+  document.getElementById('chequeNumInput').value = '';
+  document.querySelectorAll('#payModal .pay-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('payModal').classList.add('show');
+}
+
+function confirmPaid(method){
+  payModalMethod = method;
+  document.querySelectorAll('#payModal .pay-btn').forEach(function(b){ b.classList.remove('active'); });
+  event.target.classList.add('active');
+  if (method === 'cheque') {
+    document.getElementById('chequeRow').style.display = 'block';
+    document.getElementById('chequeNumInput').focus();
+    return;
+  }
+  document.getElementById('chequeRow').style.display = 'none';
+  savePaidStatus();
+}
+
+function savePaidStatus(){
+  const list = getInvoices();
+  const inv = list.find(function(x){ return x.id === payModalInvId; });
+  if (!inv) return;
+  inv.paid = true;
+  inv.payMethod = payModalMethod;
+  inv.chequeNum = payModalMethod === 'cheque' ? document.getElementById('chequeNumInput').value.trim() : '';
+  setInvoices(list);
+  closePayModal();
+  renderSaved();
+}
+
+function closePayModal(){
+  document.getElementById('payModal').classList.remove('show');
+  payModalInvId = null;
 }
 
 function togglePaid(id){
   const list = getInvoices();
   const inv = list.find(x=>x.id===id);
   if (!inv) return;
-  inv.paid = !inv.paid;
-  setInvoices(list);
-  renderSaved();
+  if (inv.paid) {
+    inv.paid = false;
+    inv.payMethod = '';
+    inv.chequeNum = '';
+    setInvoices(list);
+    renderSaved();
+  } else {
+    openPayModal(id);
+  }
 }
 
 function saveInvoice(){
@@ -472,8 +518,6 @@ function clearForm(confirmFirst){
   document.getElementById('gstBox').classList.add('on');
   document.getElementById('pstSwitch').classList.remove('on');
   document.getElementById('pstBox').classList.remove('on');
-  setPayMethod('');
-  document.getElementById('chequeNum').value = '';
   recompute();
   localStorage.removeItem(LS_DRAFT);
 }
@@ -495,8 +539,6 @@ function loadInvoice(id){
   document.getElementById('gstBox').classList.toggle('on', taxState.gst);
   document.getElementById('pstSwitch').classList.toggle('on', taxState.pst);
   document.getElementById('pstBox').classList.toggle('on', taxState.pst);
-  setPayMethod(inv.payMethod || '');
-  document.getElementById('chequeNum').value = inv.chequeNum || '';
   recompute();
   showTab('new');
 }
@@ -562,7 +604,7 @@ function invoiceCard(inv){
         <span class="total">${money(inv.total)}</span>
       </div>
       <div class="client">${escapeHtml(inv.client || '(no client)')}</div>
-      <div class="date">${escapeHtml(inv.date || '')}</div>
+      <div class="date">${escapeHtml(inv.date || '')}${inv.payMethod ? ' &nbsp;•&nbsp; <span style="color:#1b2a4a;font-weight:600">' + (inv.payMethod==='etransfer'?'E-Transfer':inv.payMethod==='cheque'?'CHQ'+(inv.chequeNum?' #'+escapeHtml(inv.chequeNum):''):inv.payMethod==='wire'?'Wire':inv.payMethod==='cash'?'Cash':escapeHtml(inv.payMethod)) + '</span>' : ''}</div>
       <div class="btns">
         <button style="background:${inv.paid?'#ffe8e8':'#e8f5e9'};color:${inv.paid?'#c0392b':'#2e7d32'}" onclick="togglePaid(${inv.id})">${inv.paid?'Mark Unpaid':'Mark Paid'}</button>
         <button style="background:#eef5ff;color:#0a66c2" onclick="loadInvoice(${inv.id})">Edit</button>
