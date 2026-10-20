@@ -1119,8 +1119,9 @@ function sendEmailViaGmail(inv){
     body += '\n────────────────────────────────────────\n\n';
   }
   body += 'Thank you for your business.\n' + s.name;
-  var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  window.open(url, '_blank');
+  // mailto opens the phone's own mail app (Mail, or Gmail if set as default).
+  // The Gmail website compose link no longer works on iPhone - it lands on a sign-in page.
+  window.location.href = 'mailto:' + to + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 }
 
 function openFormattedPreview(title, bodyHTML, inv){
