@@ -78,6 +78,7 @@
     body { background: #fff; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
 </head>
 <body>
 
@@ -301,6 +302,18 @@
 </section>
 
 </main>
+
+<div class="pay-modal" id="pdfModal">
+  <div class="pay-modal-box">
+    <div style="font-weight:700;font-size:18px;color:#1b2a4a;margin-bottom:4px">Send Invoice PDF</div>
+    <div id="pdfModalTitle" style="font-size:13px;color:#666;margin-bottom:16px"></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="pdfShareBtn" onclick="sharePdfModal()" style="padding:14px;background:#0a66c2;color:#fff;border:0;border-radius:8px;font-size:16px;font-weight:700" disabled>⏳ Preparing PDF…</button>
+      <button class="pay-btn" onclick="printPdfModal()">🖨️ Print</button>
+    </div>
+    <button onclick="closePdfModal()" style="margin-top:14px;padding:10px 20px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#666;font-size:14px;font-weight:600">Close</button>
+  </div>
+</div>
 
 <div class="pay-modal" id="payModal">
   <div class="pay-modal-box">
@@ -1269,9 +1282,86 @@ function exportCSV(){
   openFormattedPreview('Invoice Report', html);
 }
 
+// PDF button: build the PDF inside the app and share it from here (no popup window).
+// Sharing from a popup stopped working reliably in the home-screen app on iOS 27.
+var pdfModalInv = null;
+var pdfModalFile = null;
+var pdfModalBlob = null;
+
 function printOne(id){
   const inv = getInvoices().find(x=>x.id===id);
+  if (!inv) return;
+  pdfModalInv = inv;
+  pdfModalFile = null;
+  pdfModalBlob = null;
+  const btn = document.getElementById('pdfShareBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Preparing PDF…';
+  document.getElementById('pdfModalTitle').textContent = 'Invoice #' + inv.num + ' – ' + (inv.client || '');
+  document.getElementById('pdfModal').classList.add('show');
+  waitForPdfLib(function(ok){
+    if (!ok) { pdfReady('⚠️ PDF tool did not load. Check internet, or use Print.'); return; }
+    const fileName = ('Invoice_' + inv.num + '_' + (inv.client || '')).replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'') + '.pdf';
+    html2pdf().set({
+      margin: 0,
+      filename: fileName,
+      html2canvas: {scale: 2, useCORS: true},
+      jsPDF: {unit: 'pt', format: 'letter'},
+      pagebreak: {mode: ['css', 'legacy']}
+    }).from(invoiceHTML(inv)).outputPdf('blob').then(function(blob){
+      if (pdfModalInv !== inv) return;
+      pdfModalBlob = blob;
+      pdfModalFile = new File([blob], fileName, {type: 'application/pdf'});
+      pdfReady();
+    }).catch(function(e){
+      pdfReady('⚠️ Could not make the PDF (' + (e && e.message || e) + '). Use Print.');
+    });
+  });
+}
+
+function waitForPdfLib(cb, tries){
+  tries = tries || 0;
+  if (window.html2pdf) return cb(true);
+  if (tries > 40) return cb(false);
+  setTimeout(function(){ waitForPdfLib(cb, tries + 1); }, 250);
+}
+
+function pdfReady(problem){
+  const btn = document.getElementById('pdfShareBtn');
+  btn.disabled = !!problem;
+  btn.textContent = problem || '📧 Email / Share PDF';
+}
+
+function sharePdfModal(){
+  if (!pdfModalFile) return;
+  if (navigator.canShare && navigator.canShare({files:[pdfModalFile]})) {
+    navigator.share({files:[pdfModalFile], title: 'Invoice #' + pdfModalInv.num}).catch(function(e){
+      if (e && e.name === 'AbortError') return; // user closed the share menu
+      alert('Could not open the share menu: ' + (e && e.message || e) + '\nOpening the PDF instead - use its Share button.');
+      openPdfFile();
+    });
+  } else {
+    openPdfFile();
+  }
+}
+
+// Fallback: show the PDF itself; iPhone's PDF viewer has its own Share button.
+function openPdfFile(){
+  if (!pdfModalBlob) return;
+  const url = URL.createObjectURL(pdfModalBlob);
+  const w = window.open(url, '_blank');
+  if (!w) window.location.href = url;
+}
+
+function printPdfModal(){
+  const inv = pdfModalInv;
+  closePdfModal();
   openFormattedPreview(`Invoice #${inv.num}`, invoiceHTML(inv));
+}
+
+function closePdfModal(){
+  document.getElementById('pdfModal').classList.remove('show');
+  pdfModalInv = null;
 }
 
 function wipeAll(){
