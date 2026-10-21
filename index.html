@@ -1119,15 +1119,8 @@ function sendEmailViaGmail(inv){
     body += '\n────────────────────────────────────────\n\n';
   }
   body += 'Thank you for your business.\n' + s.name;
-  // On iPhone/iPad, mailto opens the phone's own mail app (Mail, or Gmail if set as default) -
-  // the Gmail website compose link lands on a sign-in page there.
-  // On a computer, mailto often goes nowhere (no mail app set up), so use Gmail's website.
-  var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (isIOS) {
-    window.location.href = 'mailto:' + to + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  } else {
-    window.open('https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body), '_blank');
-  }
+  var url = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  window.open(url, '_blank');
 }
 
 function openFormattedPreview(title, bodyHTML, inv){
